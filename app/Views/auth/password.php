@@ -1,0 +1,1 @@
+<?php use function App\Core\{e,url,csrf_field}; ?><section class="card"><h2>パスワード変更</h2><form method="post" action="<?= e(url('/password')) ?>"><?= csrf_field() ?><label>新しいパスワード<input type="password" name="password" minlength="8" required></label><button class="primary">変更</button></form></section>

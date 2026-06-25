@@ -1,0 +1,2 @@
+<?php
+namespace App\Controllers; use App\Core\{Controller,Database,View}; final class DashboardController extends Controller{public function index():string{$this->requireAuth();$pdo=Database::pdo();return View::render('dashboard',['products'=>(int)$pdo->query('SELECT COUNT(*) FROM products')->fetchColumn(),'posts'=>(int)$pdo->query('SELECT COUNT(*) FROM posts')->fetchColumn(),'templates'=>(int)$pdo->query('SELECT COUNT(*) FROM post_templates')->fetchColumn()]);}}

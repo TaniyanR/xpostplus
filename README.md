@@ -1,237 +1,125 @@
-XPostPlus
+# XPostPlus
 
-XPostPlus is a self-hosted management tool for creating X (formerly Twitter) posts from affiliate products.
+XPostPlus は、FANZA・ソクミル・DUGA などのアフィリエイト API から商品情報を取得し、X（旧 Twitter）へ**手動投稿するための投稿文**を作成・管理するサーバー設置型管理ツールです。自動投稿は行いません。
 
-It allows you to retrieve product information from supported affiliate services via API, generate customizable post templates, manage hashtags, and prepare posts for manual publishing—all without requiring the X API.
+## 主な機能
 
-Designed with a WordPress-like administration interface, responsive layout, and security-first architecture, XPostPlus is optimized for both desktop and smartphone use.
+- WordPress 風のレスポンシブ管理画面
+- ログイン、ログアウト、パスワード変更、ログイン制限
+- CSRF / XSS / SQL Injection 対策
+- FANZA / ソクミル / DUGA 用 API サービスクラス
+- API キーを管理画面から保存
+- 商品検索、保存、投稿文生成
+- 置換タグ式テンプレート
+- 商品情報からのハッシュタグ自動生成と NG ワード除外
+- 複数商品からの一括投稿文生成
+- コピー用 UI（X への投稿は手動）
 
-⸻
+## フォルダ構成
 
-Features
+```text
+app/
+  Controllers/        画面ごとの処理
+  Core/               ルーター、DB、ビュー、CSRF などの基盤
+  Models/             DB モデル
+  Services/           投稿生成、設定、ハッシュタグなど
+  Services/Affiliate/ FANZA・ソクミル・DUGA API クラス
+  Views/              HTML テンプレート
+config/               アプリ・DB 設定
+database/migrations/  将来のマイグレーション用
+public/               公開ディレクトリ（ドキュメントルート）
+storage/              SQLite DB やログ
+```
 
-* WordPress-style administration panel
-* Responsive design (PC & Smartphone)
-* Secure login system
-* FANZA API support
-* Sokmil API support
-* DUGA API support
-* Product management
-* API configuration from the admin panel
-* Customizable post templates
-* Automatic hashtag generation
-* Manual hashtag editing
-* Single post generation
-* Bulk post generation
-* Saved post management
-* Article URL management
-* Sample image support
-* Sample video support
-* Copy-ready X post generation
-* Responsive dashboard
-* Multi-site ready architecture
-* Security-first implementation
+## 必要環境
 
-⸻
+- PHP 8.3 以上推奨
+- MySQL 8 以上、または SQLite
+- Apache / Nginx
+- HTTPS 推奨
 
-Main Functions
+## インストール
 
-Product Management
+1. リポジトリをサーバーへアップロードします。
+2. Web サーバーのドキュメントルートを `public/` に設定します。
+3. `storage/` に PHP から書き込みできる権限を付与します。
+4. ブラウザでサイトを開きます。
+5. 初回アクセス時にログイン画面で管理者メールアドレスとパスワードを入力すると、管理者アカウントが作成されます。
 
-Retrieve products from supported affiliate services and manage them from a single dashboard.
+### SQLite で使う場合（初心者向け）
 
-Supported services:
+追加設定なしで利用できます。初回アクセス時に `storage/database.sqlite` が作成されます。
 
-* FANZA
-* Sokmil
-* DUGA
+### MySQL で使う場合
 
-Future services can be added without major modifications.
+MySQL に DB を作成し、環境変数を設定してください。
 
-⸻
+```bash
+export DB_DRIVER=mysql
+export DB_HOST=127.0.0.1
+export DB_PORT=3306
+export DB_DATABASE=xpostplus
+export DB_USERNAME=your_user
+export DB_PASSWORD=your_password
+```
 
-X Post Generator
+テーブルは初回アクセス時に自動作成されます。
 
-Generate X posts from product information.
+## 初回ログイン
 
-Each post can include:
+初回はユーザーが存在しないため、ログイン画面が管理者作成画面として動作します。
 
-* Product title
-* Affiliate URL
-* Article URL
-* Sample video URL
-* Sample image URL
-* Hashtags
+- メールアドレス: 任意
+- パスワード: 8文字以上
 
-Posts are generated as copy-ready text.
+2回目以降は通常のログイン画面になります。
 
-No automatic posting is performed.
+## API 設定
 
-⸻
+管理画面の「設定」から各サービスのキーを保存します。キーはコードに直接書かず DB に保存されます。
 
-Hashtag Generator
+- FANZA: `api_id`, `affiliate_id`
+- ソクミル: `affiliate_id`, `endpoint`
+- DUGA: `appid`
 
-Automatically generates hashtags using:
+キー未設定でもデモデータで画面操作を確認できます。
 
-* Actress name
-* Genre
-* Service name
-* Keywords extracted from the product title
+## 使い方
 
-Generated hashtags can be edited manually before saving.
+1. 「設定」で API 情報と NG ワードを保存します。
+2. 「商品管理」でサービスとキーワードを選んで検索します。
+3. 検索結果から必要な商品を保存します。
+4. 「テンプレート」で投稿文テンプレートを作成します。
+5. 「投稿作成」で商品とテンプレートを選び、投稿文を生成します。
+6. 生成済み投稿の「コピー」ボタンで X に手動投稿します。
 
-NG words can be excluded through the settings page.
+## テンプレートタグ
 
-⸻
+以下のタグを本文に書くと商品情報に置換されます。
 
-Post Templates
-
-Create unlimited post templates using replacement tags.
-
-Example:
-
-{title}
-Watch the sample video
-{sample_movie_url}
-Read more
-{article_url}
-{hashtags}
-
-⸻
-
-Bulk Post Generation
-
-Generate multiple X posts at once.
-
-Features include:
-
-* Multi-selection
-* Template selection
-* Bulk generation
-* Individual copy
-* Copy all
-* Duplicate prevention
-
-⸻
-
-Media Support
-
-Choose how media should be used when preparing posts.
-
-Available options:
-
-* Sample video
-* Single image
-* Multiple images
-* Text only
-
-Media is displayed for easy manual posting.
-
-The application does not upload media to X.
-
-⸻
-
-Site Management
-
-Register one or more websites.
-
-Default:
-
-* PinkClub FANZA
-
-Future sites can be added from the admin panel.
-
-Example:
-
-* FANZA
-* DUGA
-* Sokmil
-
-⸻
-
-Security
-
-Security has been prioritized throughout the project.
-
-Includes:
-
-* Password hashing
-* CSRF protection
-* XSS protection
-* SQL Injection prevention
-* Session protection
-* Login attempt limits
-* Input validation
-* Output escaping
-* Authentication required
-* Secure API key storage
-
-⸻
-
-System Requirements
-
-* PHP 8.3+
-* MySQL 8+ or SQLite
-* Apache / Nginx
-* HTTPS recommended
-
-⸻
-
-Installation
-
-1. Upload the project to your server.
-2. Create the database.
-3. Open the installer.
-4. Create the administrator account.
-5. Configure the API settings.
-6. Start retrieving products.
-
-⸻
-
-Administration
-
-The administration panel is fully responsive and designed to work comfortably on:
-
-* Desktop
-* Tablet
-* Smartphone
-
-⸻
-
-Responsive Design
-
-The admin interface includes:
-
-* Mobile sidebar
-* Touch-friendly buttons
-* Card layout for products
-* Responsive forms
-* Mobile-optimized copy interface
-
-⸻
-
-Roadmap
-
-Planned future support includes:
-
-* Additional affiliate services
-* More template options
-* Improved filtering
-* Additional export formats
-* Enhanced reporting
-
-⸻
-
-Important
-
-XPostPlus does not automatically post to X.
-
-It generates copy-ready content for manual publishing.
-
-No X API is required.
-
-⸻
-
-License
-
-MIT License
+- `{title}`
+- `{article_url}`
+- `{affiliate_url}`
+- `{sample_movie_url}`
+- `{image_url}`
+- `{hashtags}`
+- `{service}`
+- `{actress}`
+- `{genre}`
+
+## セキュリティ設計
+
+- パスワードは `password_hash()` で保存
+- SQL は PDO プリペアドステートメントを使用
+- 出力は HTML エスケープ
+- フォームは CSRF トークンを検証
+- セッション ID はログイン時に再生成
+- 15分間に5回以上失敗したログインを制限
+
+## 開発メモ
+
+API 追加時は `App\Services\Affiliate\AffiliateServiceInterface` を実装したサービスクラスを追加し、コントローラーのサービス解決に追加してください。
+
+## ライセンス
+
+MIT
