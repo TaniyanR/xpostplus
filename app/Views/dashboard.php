@@ -1,0 +1,1 @@
+<section class="grid"><div class="card"><h2>商品</h2><p class="big"><?= $products ?></p></div><div class="card"><h2>投稿文</h2><p class="big"><?= $posts ?></p></div><div class="card"><h2>テンプレート</h2><p class="big"><?= $templates ?></p></div></section><section class="card"><h2>はじめに</h2><p>設定画面でAPIキーを登録し、商品管理で検索・保存、投稿作成でテンプレートからコピー用投稿文を生成します。自動投稿は行いません。</p></section>

@@ -1,0 +1,2 @@
+-- XPostPlus initial schema is managed by app/Core/Schema.php for MySQL/SQLite portability.
+-- Keep this file as a migration marker for future incremental SQL migrations.
