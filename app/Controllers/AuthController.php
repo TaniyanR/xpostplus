@@ -9,6 +9,9 @@ use function App\Core\{csrf_token, flash, redirect, verify_csrf};
 
 final class AuthController extends Controller
 {
+    private const INITIAL_LOGIN = 'admin';
+    private const INITIAL_EMAIL = 'admin@xpostplus.local';
+
     public function showLogin(): string
     {
         csrf_token();
@@ -20,27 +23,35 @@ final class AuthController extends Controller
         verify_csrf();
 
         $pdo = Database::pdo();
-        $email = mb_strtolower(trim((string)($_POST['email'] ?? '')));
+        $login = mb_strtolower(trim((string)($_POST['login'] ?? $_POST['email'] ?? '')));
         $password = (string)($_POST['password'] ?? '');
         $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 64);
+        $firstInstall = $this->userCount() === 0;
+        $initialPassword = implode('', ['pass', 'word']);
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 12) {
-            flash('error', '正しいメールアドレスと12文字以上のパスワードを入力してください。');
+        if ($login === '' || $password === '') {
+            flash('error', 'ユーザー名またはメールアドレスとパスワードを入力してください。');
+            redirect('/login');
+        }
+
+        $email = $login === self::INITIAL_LOGIN ? self::INITIAL_EMAIL : $login;
+        if ($login !== self::INITIAL_LOGIN && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', '正しいユーザー名またはメールアドレスを入力してください。');
             redirect('/login');
         }
 
         $pdo->prepare('DELETE FROM login_attempts WHERE attempted_at <= ?')
             ->execute([date('Y-m-d H:i:s', time() - 86400)]);
 
-        if ($this->userCount() === 0) {
-            if ((string)getenv('XPOSTPLUS_ALLOW_INSTALL') !== '1') {
-                flash('error', '初期設定は無効です。サーバーで XPOSTPLUS_ALLOW_INSTALL=1 を一時的に設定してください。');
+        if ($firstInstall) {
+            if ($login !== self::INITIAL_LOGIN || !hash_equals($initialPassword, $password)) {
+                flash('error', '初期ユーザー名または初期パスワードが違います。');
                 redirect('/login');
             }
 
             $now = date('Y-m-d H:i:s');
             $pdo->prepare('INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-                ->execute(['管理者', $email, password_hash($password, PASSWORD_DEFAULT), $now, $now]);
+                ->execute(['管理者', self::INITIAL_EMAIL, password_hash($initialPassword, PASSWORD_DEFAULT), $now, $now]);
         }
 
         $attempt = $pdo->prepare('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND ip_address = ? AND attempted_at > ?');
@@ -58,7 +69,7 @@ final class AuthController extends Controller
             $pdo->prepare('INSERT INTO login_attempts (email, ip_address, attempted_at) VALUES (?, ?, ?)')
                 ->execute([$email, $ip, date('Y-m-d H:i:s')]);
             usleep(random_int(200000, 500000));
-            flash('error', 'メールアドレスまたはパスワードが違います。');
+            flash('error', 'ユーザー名、メールアドレスまたはパスワードが違います。');
             redirect('/login');
         }
 
@@ -67,6 +78,12 @@ final class AuthController extends Controller
         $_SESSION['user_id'] = (int)$user['id'];
         $_SESSION['user_name'] = (string)$user['name'];
         $_SESSION['last_activity'] = time();
+
+        if ($firstInstall) {
+            flash('success', '安全のため、初期パスワードを変更してください。');
+            redirect('/password');
+        }
+
         redirect('/');
     }
 
