@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Core\{App, Router};
-use App\Controllers\{AuthController, DashboardController, ProductController, PostController, SettingController, TemplateController};
+use App\Controllers\{AuthController, DashboardController, ProductController, PostController, RssPostController, SettingController, TemplateController};
 
 require dirname(__DIR__) . '/app/Core/bootstrap.php';
 
@@ -23,6 +23,7 @@ $router->post('/templates/delete', [TemplateController::class, 'delete']);
 $router->get('/posts', [PostController::class, 'index']);
 $router->post('/posts/generate', [PostController::class, 'generate']);
 $router->post('/posts/delete', [PostController::class, 'delete']);
+$router->get('/rss-posts', [RssPostController::class, 'index']);
 $router->get('/settings', [SettingController::class, 'index']);
 $router->post('/settings/api', [SettingController::class, 'saveApi']);
 $router->post('/settings/ng-words', [SettingController::class, 'saveNgWords']);
