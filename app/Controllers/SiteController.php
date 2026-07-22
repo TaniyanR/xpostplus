@@ -38,14 +38,14 @@ final class SiteController extends Controller
 
         if ($name === '' || !filter_var($siteUrl, FILTER_VALIDATE_URL) || !filter_var($rssUrl, FILTER_VALIDATE_URL)) {
             flash('error', 'サイト名、サイトURL、RSS URLを正しく入力してください。');
-            redirect('/sites');
+            redirect('/rss-posts');
         }
 
         $now = date('Y-m-d H:i:s');
         Database::pdo()->prepare('INSERT INTO rss_sites (name, site_url, rss_url, fixed_hashtags, enabled, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
             ->execute([$name, $siteUrl, $rssUrl, $hashtags, $now, $now]);
         flash('success', 'RSSサイトを登録しました。');
-        redirect('/sites');
+        redirect('/rss-posts');
     }
 
     public function delete(): string
@@ -55,6 +55,6 @@ final class SiteController extends Controller
         $this->prepareTable();
         Database::pdo()->prepare('DELETE FROM rss_sites WHERE id = ?')->execute([(int)($_POST['id'] ?? 0)]);
         flash('success', 'RSSサイトを削除しました。');
-        redirect('/sites');
+        redirect('/rss-posts');
     }
 }
