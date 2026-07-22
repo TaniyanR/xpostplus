@@ -1,7 +1,6 @@
 <?php
 
 declare(strict_types=1);
-
 namespace App\Controllers;
 
 use App\Core\{Controller, Database, View};
@@ -20,53 +19,66 @@ final class AuthController extends Controller
         verify_csrf();
 
         $pdo = Database::pdo();
-        $email = mb_strtolower(trim((string)($_POST['email'] ?? '')));
+        $login = mb_strtolower(trim((string)($_POST['login'] ?? '')));
         $password = (string)($_POST['password'] ?? '');
         $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 64);
+        $first = $this->userCount() === 0;
 
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 12) {
-            flash('error', '正しいメールアドレスと12文字以上のパスワードを入力してください。');
+        if ($login === '' || $password === '') {
+            flash('error', 'ユーザー名とパスワードを入力してください。');
             redirect('/login');
         }
 
         $pdo->prepare('DELETE FROM login_attempts WHERE attempted_at <= ?')
             ->execute([date('Y-m-d H:i:s', time() - 86400)]);
 
-        if ($this->userCount() === 0) {
-            if ((string)getenv('XPOSTPLUS_ALLOW_INSTALL') !== '1') {
-                flash('error', '初期設定は無効です。サーバーで XPOSTPLUS_ALLOW_INSTALL=1 を一時的に設定してください。');
+        if ($first) {
+            if ($login !== 'admin' || $password !== 'password') {
+                flash('error', '初回はユーザー名「admin」、パスワード「password」でログインしてください。');
                 redirect('/login');
             }
 
             $now = date('Y-m-d H:i:s');
             $pdo->prepare('INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-                ->execute(['管理者', $email, password_hash($password, PASSWORD_DEFAULT), $now, $now]);
+                ->execute(['admin', 'admin@localhost', password_hash('password', PASSWORD_DEFAULT), $now, $now]);
         }
 
+        $attemptKey = substr($login, 0, 255);
         $attempt = $pdo->prepare('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND ip_address = ? AND attempted_at > ?');
-        $attempt->execute([$email, $ip, date('Y-m-d H:i:s', time() - 900)]);
+        $attempt->execute([$attemptKey, $ip, date('Y-m-d H:i:s', time() - 900)]);
         if ((int)$attempt->fetchColumn() >= 5) {
             flash('error', 'ログイン試行回数が多すぎます。15分後に再試行してください。');
             redirect('/login');
         }
 
-        $statement = $pdo->prepare('SELECT * FROM users WHERE email = ?');
-        $statement->execute([$email]);
+        if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
+            $statement = $pdo->prepare('SELECT * FROM users WHERE email = ?');
+        } else {
+            $statement = $pdo->prepare('SELECT * FROM users WHERE name = ?');
+        }
+        $statement->execute([$login]);
         $user = $statement->fetch();
 
         if (!$user || !password_verify($password, $user['password_hash'])) {
             $pdo->prepare('INSERT INTO login_attempts (email, ip_address, attempted_at) VALUES (?, ?, ?)')
-                ->execute([$email, $ip, date('Y-m-d H:i:s')]);
+                ->execute([$attemptKey, $ip, date('Y-m-d H:i:s')]);
             usleep(random_int(200000, 500000));
-            flash('error', 'メールアドレスまたはパスワードが違います。');
+            flash('error', 'ユーザー名またはパスワードが違います。');
             redirect('/login');
         }
 
-        $pdo->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?')->execute([$email, $ip]);
+        $pdo->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?')->execute([$attemptKey, $ip]);
         session_regenerate_id(true);
         $_SESSION['user_id'] = (int)$user['id'];
         $_SESSION['user_name'] = (string)$user['name'];
         $_SESSION['last_activity'] = time();
+
+        if ($first) {
+            $_SESSION['force_password_change'] = true;
+            flash('error', '初期パスワードのままでは危険です。新しいパスワードへ変更してください。');
+            redirect('/password');
+        }
+
         redirect('/');
     }
 
@@ -100,8 +112,9 @@ final class AuthController extends Controller
 
         Database::pdo()->prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
             ->execute([password_hash($password, PASSWORD_DEFAULT), date('Y-m-d H:i:s'), $_SESSION['user_id']]);
+        unset($_SESSION['force_password_change']);
         session_regenerate_id(true);
         flash('success', 'パスワードを変更しました。');
-        redirect('/password');
+        redirect('/');
     }
 }
