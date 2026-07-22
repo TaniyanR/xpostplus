@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace App\Controllers;
 
 use App\Core\{Controller, Database, View};
-use App\Models\Product;
-use App\Services\{HashtagService, PostTemplateService, SettingsService};
 use function App\Core\{flash, redirect, verify_csrf};
 
 final class PostController extends Controller
@@ -16,48 +14,36 @@ final class PostController extends Controller
         $this->requireAuth();
         $pdo = Database::pdo();
 
-        return View::render('posts/index', [
-            'products' => Product::all(),
-            'templates' => $pdo->query('SELECT * FROM post_templates ORDER BY is_default DESC, id DESC')->fetchAll(),
-            'posts' => $pdo->query('SELECT posts.*, products.title FROM posts JOIN products ON products.id = posts.product_id ORDER BY posts.id DESC')->fetchAll(),
-        ]);
+        $posts = $pdo->query(
+            "SELECT posts.*, COALESCE(products.title, '記事タイトル未設定') AS title
+             FROM posts
+             LEFT JOIN products ON products.id = posts.product_id
+             ORDER BY posts.id DESC"
+        )->fetchAll();
+
+        return View::render('posts/index', ['posts' => $posts]);
     }
 
-    public function generate(): string
+    public function updateStatus(): string
     {
         $this->requireAuth();
         verify_csrf();
 
-        $ids = $_POST['product_ids'] ?? [];
-        $templateId = (int)($_POST['template_id'] ?? 0);
-        $pdo = Database::pdo();
-        $templateStatement = $pdo->prepare('SELECT * FROM post_templates WHERE id = ?');
-        $templateStatement->execute([$templateId]);
-        $template = $templateStatement->fetch();
-
-        if (!$template) {
-            flash('error', 'テンプレートが見つかりません。');
+        $id = (int)($_POST['id'] ?? 0);
+        $status = (string)($_POST['status'] ?? 'draft');
+        if (!in_array($status, ['draft', 'copied', 'posted'], true)) {
+            flash('error', '投稿状態が正しくありません。');
             redirect('/posts');
         }
 
-        $ngWords = (new SettingsService())->ngWords();
-        $hashtagService = new HashtagService();
-        $renderer = new PostTemplateService();
-        $insert = $pdo->prepare('INSERT INTO posts (product_id, template_id, body, hashtags, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)');
+        $now = date('Y-m-d H:i:s');
+        $postedAt = $status === 'posted' ? $now : null;
+        $copiedAt = in_array($status, ['copied', 'posted'], true) ? $now : null;
 
-        foreach ($ids as $id) {
-            $product = Product::find((int)$id);
-            if (!$product) {
-                continue;
-            }
+        Database::pdo()->prepare('UPDATE posts SET status = ?, copied_at = COALESCE(?, copied_at), posted_at = ?, updated_at = ? WHERE id = ?')
+            ->execute([$status, $copiedAt, $postedAt, $now, $id]);
 
-            $hashtags = $hashtagService->generate($product, $ngWords);
-            $body = $renderer->render($template['body'], $product, $hashtags);
-            $now = date('Y-m-d H:i:s');
-            $insert->execute([$product['id'], $templateId, $body, $hashtags, 'draft', $now, $now]);
-        }
-
-        flash('success', '投稿文を生成しました。');
+        flash('success', $status === 'posted' ? '投稿済みに変更しました。' : '投稿状態を変更しました。');
         redirect('/posts');
     }
 
@@ -65,7 +51,8 @@ final class PostController extends Controller
     {
         $this->requireAuth();
         verify_csrf();
-        Database::pdo()->prepare('DELETE FROM posts WHERE id = ?')->execute([(int)$_POST['id']]);
+        Database::pdo()->prepare('DELETE FROM posts WHERE id = ?')->execute([(int)($_POST['id'] ?? 0)]);
+        flash('success', '投稿文を削除しました。');
         redirect('/posts');
     }
 }

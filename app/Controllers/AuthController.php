@@ -76,7 +76,7 @@ final class AuthController extends Controller
         if ($first) {
             $_SESSION['force_password_change'] = true;
             flash('error', '初期パスワードのままでは危険です。新しいパスワードへ変更してください。');
-            redirect('/password');
+            redirect('/settings');
         }
 
         redirect('/');
@@ -94,10 +94,40 @@ final class AuthController extends Controller
         redirect('/login');
     }
 
-    public function showPassword(): string
+    public function showSettings(): string
     {
         $this->requireAuth();
-        return View::render('auth/password');
+        $statement = Database::pdo()->prepare('SELECT name, email FROM users WHERE id = ?');
+        $statement->execute([$_SESSION['user_id']]);
+        return View::render('settings/account', ['user' => $statement->fetch()]);
+    }
+
+    public function showPassword(): string
+    {
+        return $this->showSettings();
+    }
+
+    public function changeEmail(): string
+    {
+        $this->requireAuth();
+        verify_csrf();
+        $email = mb_strtolower(trim((string)($_POST['email'] ?? '')));
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            flash('error', '正しいメールアドレスを入力してください。');
+            redirect('/settings');
+        }
+
+        try {
+            Database::pdo()->prepare('UPDATE users SET email = ?, updated_at = ? WHERE id = ?')
+                ->execute([$email, date('Y-m-d H:i:s'), $_SESSION['user_id']]);
+        } catch (\PDOException $e) {
+            flash('error', 'そのメールアドレスは使用できません。');
+            redirect('/settings');
+        }
+
+        flash('success', 'ID（メールアドレス）を変更しました。');
+        redirect('/settings');
     }
 
     public function changePassword(): string
@@ -105,9 +135,15 @@ final class AuthController extends Controller
         $this->requireAuth();
         verify_csrf();
         $password = (string)($_POST['password'] ?? '');
+        $confirmation = (string)($_POST['password_confirmation'] ?? $password);
+
         if (strlen($password) < 12) {
             flash('error', 'パスワードは12文字以上で入力してください。');
-            redirect('/password');
+            redirect('/settings');
+        }
+        if ($password !== $confirmation) {
+            flash('error', '確認用パスワードが一致しません。');
+            redirect('/settings');
         }
 
         Database::pdo()->prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
@@ -115,6 +151,6 @@ final class AuthController extends Controller
         unset($_SESSION['force_password_change']);
         session_regenerate_id(true);
         flash('success', 'パスワードを変更しました。');
-        redirect('/');
+        redirect('/settings');
     }
 }
