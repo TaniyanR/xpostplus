@@ -3,7 +3,7 @@
 declare(strict_types=1);
 
 use App\Core\{App, Router};
-use App\Controllers\{AuthController, DashboardController, PostController, SiteController, TemplateController};
+use App\Controllers\{AuthController, DashboardController, PostController, ProductController, SiteController, TemplateController};
 
 require dirname(__DIR__) . '/app/Core/bootstrap.php';
 
@@ -22,6 +22,11 @@ $router->post('/password', [AuthController::class, 'changePassword']);
 $router->get('/rss-posts', [SiteController::class, 'index']);
 $router->post('/rss-posts', [SiteController::class, 'store']);
 $router->post('/rss-posts/delete', [SiteController::class, 'delete']);
+
+$router->get('/products', [ProductController::class, 'index']);
+$router->post('/products/api', [ProductController::class, 'saveApi']);
+$router->post('/products/search', [ProductController::class, 'search']);
+$router->post('/products/save', [ProductController::class, 'save']);
 
 $router->get('/templates', [TemplateController::class, 'index']);
 $router->post('/templates', [TemplateController::class, 'store']);
