@@ -7,9 +7,27 @@
 <section class="grid">
   <?php
   $serviceFields = [
-      'fanza' => ['label' => 'FANZA', 'fields' => ['api_id' => 'API ID', 'affiliate_id' => 'アフィリエイトID']],
-      'duga' => ['label' => 'DUGA', 'fields' => ['appid' => 'APP ID']],
-      'sokmil' => ['label' => 'SOKMIL', 'fields' => ['affiliate_id' => 'アフィリエイトID', 'endpoint' => 'APIエンドポイント']],
+      'fanza' => [
+          'label' => 'FANZA',
+          'fields' => [
+              'api_id' => 'API ID',
+              'affiliate_id' => 'アフィリエイトID',
+          ],
+      ],
+      'duga' => [
+          'label' => 'DUGA',
+          'fields' => [
+              'appid' => 'アプリケーションID（APP ID）',
+              'agentid' => '代理店ID（AGENT ID）',
+          ],
+      ],
+      'sokmil' => [
+          'label' => 'SOKMIL',
+          'fields' => [
+              'affiliate_id' => 'アフィリエイトID',
+              'endpoint' => 'APIエンドポイント',
+          ],
+      ],
   ];
   ?>
   <?php foreach ($serviceFields as $service => $definition): ?>
