@@ -15,7 +15,7 @@
       <div class="notice error"><?= e($message) ?></div>
     <?php endif; ?>
     <?= csrf_field() ?>
-    <label>ID（メールアドレス）
+    <label>ID
       <input type="text" name="login" autocomplete="username" required>
     </label>
     <label>パスワード
