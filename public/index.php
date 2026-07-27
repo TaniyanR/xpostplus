@@ -33,7 +33,8 @@ $router->post('/templates', [TemplateController::class, 'store']);
 $router->post('/templates/delete', [TemplateController::class, 'delete']);
 
 $router->get('/posts', [PostController::class, 'index']);
-$router->post('/posts/status', [PostController::class, 'updateStatus']);
+$router->post('/posts/copied', [PostController::class, 'copied']);
 $router->post('/posts/delete', [PostController::class, 'delete']);
+$router->post('/posts/bulk-delete', [PostController::class, 'bulkDelete']);
 
 (new App($router))->run();
