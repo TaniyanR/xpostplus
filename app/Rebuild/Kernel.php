@@ -21,9 +21,47 @@ final class Kernel
 
     public function run(): void
     {
+        $this->sendSecurityHeaders();
         $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
         if ($this->base !== '' && $this->base !== '/' && str_starts_with($path, $this->base)) {
             $path = substr($path, strlen($this->base)) ?: '/';
+        }
+
+        $method = strtoupper($_SERVER['REQUEST_METHOD'] ?? 'GET');
+        $this->expireIdleSession();
+
+        if ($path === '/login') {
+            if (!empty($_SESSION['user_id'])) {
+                $this->redirect('/');
+            }
+            if ($method === 'POST') {
+                $this->handleLogin();
+            }
+            $this->loginPage();
+            return;
+        }
+
+        if (empty($_SESSION['user_id'])) {
+            $this->redirect('/login');
+        }
+
+        if (!empty($_SESSION['force_password_change']) && $path !== '/password' && $path !== '/logout') {
+            $this->redirect('/password');
+        }
+
+        if ($path === '/password') {
+            if ($method === 'POST') {
+                $this->handlePasswordChange();
+            }
+            $this->layout('パスワード変更', $path, $this->passwordPage());
+            return;
+        }
+
+        if ($path === '/logout') {
+            if ($method !== 'POST') {
+                $this->redirect('/');
+            }
+            $this->handleLogout();
         }
 
         $routes = [
@@ -36,7 +74,6 @@ final class Kernel
             '/video-templates' => ['動画テンプレート', fn () => $this->templatePage('video')],
             '/posts' => ['投稿管理', fn () => $this->posts()],
             '/settings' => ['設定', fn () => $this->settings()],
-            '/logout' => ['ログアウト', fn () => $this->logout()],
         ];
 
         if (!isset($routes[$path])) {
@@ -52,7 +89,10 @@ final class Kernel
     private function startSession(): void
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
-            session_name('xpostplus_rebuild');
+            ini_set('session.use_strict_mode', '1');
+            ini_set('session.cookie_httponly', '1');
+            ini_set('session.cookie_samesite', 'Lax');
+            session_name('xpostplus_session');
             session_start();
         }
     }
@@ -93,6 +133,9 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS templates (id {$id}, source_type VARCHAR(20) NOT NULL, name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS posts (id {$id}, source_type VARCHAR(20) NOT NULL, source_item_id INTEGER, template_id INTEGER, title VARCHAR(500), body {$text} NOT NULL, media_url VARCHAR(1000), status VARCHAR(20) NOT NULL DEFAULT 'draft', copied_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS activity_logs (id {$id}, action VARCHAR(100) NOT NULL, message {$text}, created_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS users (id {$id}, name VARCHAR(100) NOT NULL, email VARCHAR(190) NOT NULL UNIQUE, password_hash VARCHAR(255) NOT NULL, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (id {$id}, email VARCHAR(190) NOT NULL, ip_address VARCHAR(64) NOT NULL, attempted_at DATETIME NOT NULL)");
+        $this->createIndex('idx_login_attempts_lookup', 'login_attempts', 'email, ip_address, attempted_at');
 
         foreach (['api' => '標準API投稿', 'rss' => '標準RSS投稿', 'video' => '標準動画投稿'] as $type => $name) {
             $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM templates WHERE source_type = ?');
@@ -204,12 +247,129 @@ final class Kernel
         return '<section class="page-head"><h1>設定</h1><p>DB・ログイン・各取得元の接続設定を管理します。</p></section><section class="panel"><h2>データベース</h2><p>必要なテーブルはアクセス時に自動作成されます。SQLの手動実行は不要です。</p></section>';
     }
 
-    private function logout(): string
+    private function loginPage(): void
     {
-        $_SESSION = [];
-        session_regenerate_id(true);
+        $error = $this->pullFlash('error');
+        $first = (int)$this->pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
+        $notice = $first
+            ? '<div class="notice">初回ログイン：ユーザー名 <strong>admin</strong>／パスワード <strong>password</strong></div>'
+            : '';
+        $errorHtml = $error !== '' ? '<div class="notice error">' . $this->e($error) . '</div>' : '';
 
-        return '<section class="page-head"><h1>ログアウト</h1><p>管理画面からログアウトしました。</p></section><section class="panel"><a class="button" href="' . $this->url('/') . '">管理画面へ戻る</a></section>';
+        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>管理画面へログインしてください。</p>' . $errorHtml . $notice
+            . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">'
+            . '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label>'
+            . '<label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>'
+            . '<button class="primary login-button" type="submit">ログイン</button></form></section></main></body></html>';
+    }
+
+    private function handleLogin(): void
+    {
+        $this->verifyCsrf();
+        $login = trim((string)($_POST['login'] ?? ''));
+        $login = function_exists('mb_strtolower') ? mb_strtolower($login) : strtolower($login);
+        $password = (string)($_POST['password'] ?? '');
+        $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? 'cli'), 0, 64);
+        $first = (int)$this->pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
+
+        if ($login === '' || $password === '') {
+            $this->flash('error', 'ユーザー名とパスワードを入力してください。');
+            $this->redirect('/login');
+        }
+
+        $this->pdo->prepare('DELETE FROM login_attempts WHERE attempted_at <= ?')
+            ->execute([date('Y-m-d H:i:s', time() - 86400)]);
+
+        if ($first) {
+            if ($login !== 'admin' || $password !== 'password') {
+                $this->flash('error', '初回はユーザー名「admin」、パスワード「password」でログインしてください。');
+                $this->redirect('/login');
+            }
+            $now = date('Y-m-d H:i:s');
+            $this->pdo->prepare('INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
+                ->execute(['admin', 'admin@localhost', password_hash('password', PASSWORD_DEFAULT), $now, $now]);
+        }
+
+        $attemptKey = substr($login, 0, 190);
+        $attempt = $this->pdo->prepare('SELECT COUNT(*) FROM login_attempts WHERE email = ? AND ip_address = ? AND attempted_at > ?');
+        $attempt->execute([$attemptKey, $ip, date('Y-m-d H:i:s', time() - 900)]);
+        if ((int)$attempt->fetchColumn() >= 5) {
+            $this->flash('error', 'ログイン試行回数が多すぎます。15分後に再試行してください。');
+            $this->redirect('/login');
+        }
+
+        $column = filter_var($login, FILTER_VALIDATE_EMAIL) ? 'email' : 'name';
+        $statement = $this->pdo->prepare("SELECT * FROM users WHERE {$column} = ?");
+        $statement->execute([$login]);
+        $user = $statement->fetch();
+
+        if (!$user || !password_verify($password, (string)$user['password_hash'])) {
+            $this->pdo->prepare('INSERT INTO login_attempts (email, ip_address, attempted_at) VALUES (?, ?, ?)')
+                ->execute([$attemptKey, $ip, date('Y-m-d H:i:s')]);
+            usleep(random_int(200000, 500000));
+            $this->flash('error', 'ユーザー名またはパスワードが違います。');
+            $this->redirect('/login');
+        }
+
+        $this->pdo->prepare('DELETE FROM login_attempts WHERE email = ? AND ip_address = ?')->execute([$attemptKey, $ip]);
+        session_regenerate_id(true);
+        $_SESSION['user_id'] = (int)$user['id'];
+        $_SESSION['user_name'] = (string)$user['name'];
+        $_SESSION['last_activity'] = time();
+
+        if ($first || password_verify('password', (string)$user['password_hash'])) {
+            $_SESSION['force_password_change'] = true;
+            $this->flash('error', '初期パスワードのままでは危険です。新しいパスワードへ変更してください。');
+            $this->redirect('/password');
+        }
+
+        $this->redirect('/');
+    }
+
+    private function passwordPage(): string
+    {
+        $error = $this->pullFlash('error');
+        $errorHtml = $error !== '' ? '<div class="notice error">' . $this->e($error) . '</div>' : '';
+
+        return '<section class="page-head"><h1>パスワード変更</h1><p>安全のため、12文字以上の新しいパスワードを設定してください。</p></section>'
+            . '<section class="panel password-panel">' . $errorHtml
+            . '<form method="post" action="' . $this->url('/password') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">'
+            . '<label>新しいパスワード<input name="password" type="password" minlength="12" autocomplete="new-password" required></label>'
+            . '<label>新しいパスワード（確認）<input name="password_confirmation" type="password" minlength="12" autocomplete="new-password" required></label>'
+            . '<button class="primary" type="submit">パスワードを変更</button></form></section>';
+    }
+
+    private function handlePasswordChange(): void
+    {
+        $this->verifyCsrf();
+        $password = (string)($_POST['password'] ?? '');
+        $confirmation = (string)($_POST['password_confirmation'] ?? '');
+        if (strlen($password) < 12) {
+            $this->flash('error', 'パスワードは12文字以上で入力してください。');
+            $this->redirect('/password');
+        }
+        if (!hash_equals($password, $confirmation)) {
+            $this->flash('error', '確認用パスワードが一致しません。');
+            $this->redirect('/password');
+        }
+
+        $this->pdo->prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), date('Y-m-d H:i:s'), (int)$_SESSION['user_id']]);
+        unset($_SESSION['force_password_change']);
+        session_regenerate_id(true);
+        $this->redirect('/');
+    }
+
+    private function handleLogout(): void
+    {
+        $this->verifyCsrf();
+        $_SESSION = [];
+        if (ini_get('session.use_cookies')) {
+            $params = session_get_cookie_params();
+            setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], (bool)$params['secure'], (bool)$params['httponly']);
+        }
+        session_destroy();
+        $this->redirect('/login');
     }
 
     private function stat(string $label, int $count, string $path): string
@@ -244,7 +404,7 @@ final class Kernel
         }
         $nav .= '<a class="' . ($path === '/posts' ? 'active' : '') . '" href="' . $this->url('/posts') . '">投稿管理</a>'
             . '<a class="' . ($path === '/settings' ? 'active' : '') . '" href="' . $this->url('/settings') . '">設定</a>'
-            . '<a class="logout-link" href="' . $this->url('/logout') . '">ログアウト</a>';
+            . '<form class="logout-form" method="post" action="' . $this->url('/logout') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '"><button class="logout-link" type="submit">ログアウト</button></form>';
 
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $this->e($title) . ' | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body><div class="app"><aside><h1>XPostPlus</h1><nav>' . $nav . '</nav></aside><main><header><strong>' . $this->e($title) . '</strong></header><div class="content">' . $content . '</div></main></div></body></html>';
     }
@@ -257,5 +417,76 @@ final class Kernel
     private function e(string $value): string
     {
         return htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+    }
+
+    private function sendSecurityHeaders(): void
+    {
+        header('X-Content-Type-Options: nosniff');
+        header('X-Frame-Options: DENY');
+        header('Referrer-Policy: same-origin');
+        header("Permissions-Policy: camera=(), microphone=(), geolocation=()");
+        header("Content-Security-Policy: default-src 'self'; img-src 'self' https: data:; media-src 'self' https:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'");
+        header('Cache-Control: no-store, private');
+    }
+
+    private function expireIdleSession(): void
+    {
+        if (empty($_SESSION['user_id'])) {
+            return;
+        }
+        $last = (int)($_SESSION['last_activity'] ?? time());
+        if (time() - $last > 3600) {
+            $_SESSION = [];
+            session_destroy();
+            $this->redirect('/login');
+        }
+        $_SESSION['last_activity'] = time();
+    }
+
+    private function csrfToken(): string
+    {
+        if (empty($_SESSION['csrf_token'])) {
+            $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+        }
+        return (string)$_SESSION['csrf_token'];
+    }
+
+    private function verifyCsrf(): void
+    {
+        $token = (string)($_POST['csrf_token'] ?? '');
+        if ($token === '' || !hash_equals($this->csrfToken(), $token)) {
+            http_response_code(419);
+            exit('画面の有効期限が切れました。前の画面へ戻り、もう一度お試しください。');
+        }
+    }
+
+    private function flash(string $key, string $message): void
+    {
+        $_SESSION['flash'][$key] = $message;
+    }
+
+    private function pullFlash(string $key): string
+    {
+        $message = (string)($_SESSION['flash'][$key] ?? '');
+        unset($_SESSION['flash'][$key]);
+        return $message;
+    }
+
+    private function redirect(string $path): never
+    {
+        header('Location: ' . $this->url($path));
+        exit;
+    }
+
+    private function createIndex(string $name, string $table, string $columns): void
+    {
+        try {
+            $this->pdo->exec("CREATE INDEX {$name} ON {$table} ({$columns})");
+        } catch (\PDOException $exception) {
+            $message = strtolower($exception->getMessage());
+            if (!str_contains($message, 'already exists') && !str_contains($message, 'duplicate key name')) {
+                throw $exception;
+            }
+        }
     }
 }
