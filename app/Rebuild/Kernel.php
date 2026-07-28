@@ -210,11 +210,13 @@ final class Kernel
 
     private function dashboard(): string
     {
-        return '<section class="page-head"><h1>ダッシュボード</h1><p>X投稿用の素材取得、投稿作成、コピー済み管理を行います。</p></section>'
-            . '<section class="dashboard-grid">'
-            . $this->guideCard('API投稿', 'FANZA・DUGA・SOKUMIRUから商品素材を取得します。', '/api-posts')
-            . $this->guideCard('RSS投稿', '登録したRSSから記事素材を取得します。', '/rss-posts')
-            . $this->guideCard('動画投稿', '動画をダウンロード・編集して投稿素材を作ります。', '/videos')
+        return '<section class="page-head dashboard-head"><h1>作業を選択</h1><p>素材の種類ごとに「投稿」と「テンプレート」をまとめています。</p></section>'
+            . '<section class="dashboard-source-grid">'
+            . $this->dashboardGroup('API', 'FANZA・DUGA・SOKUMIRUの商品を取得', '/api-posts', '/api-templates')
+            . $this->dashboardGroup('RSS', '登録したRSSから記事を取得', '/rss-posts', '/rss-templates')
+            . $this->dashboardGroup('動画', '動画を取得・編集して素材を作成', '/videos', '/video-templates')
+            . '</section>'
+            . '<section class="dashboard-management">'
             . $this->guideCard('投稿管理', '作成した投稿のコピー・編集・削除を行います。', '/posts')
             . $this->guideCard('設定', 'DB・API・ログイン情報を設定します。', '/settings')
             . '</section>';
@@ -482,7 +484,7 @@ final class Kernel
         $db = $this->databaseConfig();
         $error = $this->pullFlash('error');
         $notice = $error !== '' ? $error : 'MariaDBへ接続できません。最初に接続情報を設定してください。';
-        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DB初期設定 | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell setup-shell"><section class="login-card"><h1>XPostPlus</h1><p>MariaDB初期設定</p><div class="notice error">' . $this->e($notice) . '</div>'
+        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DB初期設定 | XPostPlus</title><link rel="stylesheet" href="' . $this->asset('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell setup-shell"><section class="login-card"><h1>XPostPlus</h1><p>MariaDB初期設定</p><div class="notice error">' . $this->e($notice) . '</div>'
             . '<form method="post" action="' . $this->url('/setup/database') . '">' . $this->csrfField()
             . '<label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label>'
             . '<label>DBパスワード<input name="password" type="password" autocomplete="new-password"></label><button class="primary login-button">接続テストして保存</button></form>'
@@ -1156,7 +1158,7 @@ final class Kernel
         $fields = '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>';
         $heading = '管理画面へログインしてください。';
         $button = 'ログイン';
-        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>' . $heading . '</p>' . $errorHtml
+        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->asset('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>' . $heading . '</p>' . $errorHtml
             . $notice . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
             . '<button class="primary login-button" type="submit">' . $button . '</button></form></section></main></body></html>';
     }
@@ -1273,6 +1275,13 @@ final class Kernel
         return '<a class="guide-card" href="' . $this->url($path) . '"><h2>' . $this->e($title) . '</h2><p>' . $this->e($description) . '</p><span>開く →</span></a>';
     }
 
+    private function dashboardGroup(string $title, string $description, string $postPath, string $templatePath): string
+    {
+        return '<article class="dashboard-source-card"><div class="dashboard-source-title"><span>' . $this->e($title) . '</span><p>' . $this->e($description) . '</p></div>'
+            . '<div class="dashboard-source-actions"><a class="dashboard-primary-action" href="' . $this->url($postPath) . '">' . $this->e($title) . '投稿を開く</a>'
+            . '<a class="dashboard-secondary-action" href="' . $this->url($templatePath) . '">' . $this->e($title) . 'テンプレート</a></div></article>';
+    }
+
     private function layout(string $title, string $path, string $content): void
     {
         $groups = [
@@ -1302,12 +1311,19 @@ final class Kernel
             . '<a class="' . ($path === '/settings' ? 'active' : '') . '" href="' . $this->url('/settings') . '">設定</a>'
             . '<form class="logout-form" method="post" action="' . $this->url('/logout') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '"><button class="logout-link" type="submit">ログアウト</button></form>';
 
-        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $this->e($title) . ' | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body><div class="app"><aside id="sidebar"><div class="sidebar-head"><h1>XPostPlus</h1><button class="menu-close" type="button" data-menu-close aria-label="メニューを閉じる">×</button></div><nav>' . $nav . '</nav></aside><main><header><button class="menu-toggle" type="button" data-menu-open aria-controls="sidebar" aria-expanded="false">☰</button><strong>' . $this->e($title) . '</strong></header><div class="content">' . $content . '</div></main></div><div class="menu-backdrop" data-menu-close></div><script src="' . $this->url('/assets/js/rebuild.js') . '"></script></body></html>';
+        echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $this->e($title) . ' | XPostPlus</title><link rel="stylesheet" href="' . $this->asset('/assets/css/rebuild.css') . '"></head><body><div class="app"><aside id="sidebar"><div class="sidebar-head"><h1>XPostPlus</h1><button class="menu-close" type="button" data-menu-close aria-label="メニューを閉じる">×</button></div><nav>' . $nav . '</nav></aside><main><header><button class="menu-toggle" type="button" data-menu-open aria-controls="sidebar" aria-expanded="false">☰</button><strong>' . $this->e($title) . '</strong></header><div class="content">' . $content . '</div></main></div><div class="menu-backdrop" data-menu-close></div><script src="' . $this->asset('/assets/js/rebuild.js') . '"></script></body></html>';
     }
 
     private function url(string $path): string
     {
         return ($this->base ?: '') . $path;
+    }
+
+    private function asset(string $path): string
+    {
+        $file = dirname(__DIR__, 2) . '/public' . $path;
+        $version = is_file($file) ? (string)filemtime($file) : '1';
+        return $this->url($path) . '?v=' . rawurlencode($version);
     }
 
     private function e(string $value): string
