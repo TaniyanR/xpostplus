@@ -372,7 +372,7 @@ final class Kernel
         $user = $userStmt->fetch() ?: ['name' => '', 'email' => ''];
         return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DB・API・ログイン情報を管理します。</p></section><section class="settings-grid">' . $cards . '</section>'
             . '<section class="panel"><h2>MariaDB設定</h2><p>保存前に接続テストを行います。パスワードは変更する場合だけ入力してください。</p><form method="post" action="' . $this->url('/settings/database') . '">' . $this->csrfField()
-            . '<div class="form-grid"><label>ホスト<input name="host" value="' . $this->e($db['host']) . '" required></label><label>ポート<input name="port" type="number" value="' . $this->e($db['port']) . '" required></label><label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>ユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label></div><label>DBパスワード<input name="password" type="password" placeholder="保存済み（変更する場合のみ入力）"></label><button class="primary">接続テストして保存</button></form></section>'
+            . '<div class="form-grid"><label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label></div><label>DBパスワード<input name="password" type="password" placeholder="保存済み（変更する場合のみ入力）"></label><button class="primary">接続テストして保存</button></form></section>'
             . '<section class="panel password-panel"><h2>ログイン情報</h2><form method="post" action="' . $this->url('/settings/profile') . '">' . $this->csrfField()
             . '<label>ユーザー名<input name="name" value="' . $this->e($user['name']) . '" required maxlength="100"></label><label>メールアドレス<input name="email" type="email" value="' . $this->e($user['email']) . '" required maxlength="190"></label><button class="primary">ログイン情報を保存</button></form></section>'
             . $this->passwordPage();
@@ -439,10 +439,10 @@ final class Kernel
         $path = dirname(__DIR__, 2) . '/storage/config/database.json';
         $saved = is_file($path) ? json_decode((string)file_get_contents($path), true) : [];
         return [
-            'host' => (string)($saved['host'] ?? getenv('DB_HOST') ?: '127.0.0.1'),
-            'port' => (string)($saved['port'] ?? getenv('DB_PORT') ?: '3306'),
-            'database' => (string)($saved['database'] ?? getenv('DB_DATABASE') ?: 'xpostplus'),
-            'username' => (string)($saved['username'] ?? getenv('DB_USERNAME') ?: 'root'),
+            'host' => 'localhost',
+            'port' => '3306',
+            'database' => (string)($saved['database'] ?? getenv('DB_DATABASE') ?: ''),
+            'username' => (string)($saved['username'] ?? getenv('DB_USERNAME') ?: ''),
             'password' => (string)($saved['password'] ?? getenv('DB_PASSWORD') ?: ''),
         ];
     }
@@ -451,19 +451,19 @@ final class Kernel
     {
         $current = $this->databaseConfig();
         $config = [
-            'host' => trim((string)($_POST['host'] ?? '')),
-            'port' => trim((string)($_POST['port'] ?? '3306')),
+            'host' => 'localhost',
+            'port' => '3306',
             'database' => trim((string)($_POST['database'] ?? '')),
             'username' => trim((string)($_POST['username'] ?? '')),
             'password' => (string)($_POST['password'] ?? '') !== '' ? (string)$_POST['password'] : $current['password'],
         ];
-        if ($config['host'] === '' || $config['database'] === '' || $config['username'] === '' || !ctype_digit($config['port'])) {
+        if ($config['database'] === '' || $config['username'] === '') {
             $this->fail('MariaDB設定を正しく入力してください。', $failurePath);
         }
         try {
             new PDO("mysql:host={$config['host']};port={$config['port']};dbname={$config['database']};charset=utf8mb4", $config['username'], $config['password'], [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_EMULATE_PREPARES => false]);
-        } catch (\PDOException $e) {
-            $this->fail('MariaDBへ接続できません：' . $e->getMessage(), $failurePath);
+        } catch (\PDOException) {
+            $this->fail('MariaDBへ接続できません。DB名・DBユーザー名・DBパスワードを確認してください。', $failurePath);
         }
         $dir = dirname(__DIR__, 2) . '/storage/config';
         if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
@@ -484,8 +484,7 @@ final class Kernel
         $notice = $error !== '' ? $error : 'MariaDBへ接続できません。最初に接続情報を設定してください。';
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>DB初期設定 | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell setup-shell"><section class="login-card"><h1>XPostPlus</h1><p>MariaDB初期設定</p><div class="notice error">' . $this->e($notice) . '</div>'
             . '<form method="post" action="' . $this->url('/setup/database') . '">' . $this->csrfField()
-            . '<label>ホスト<input name="host" value="' . $this->e($db['host']) . '" required></label><label>ポート<input name="port" type="number" min="1" max="65535" value="' . $this->e($db['port']) . '" required></label>'
-            . '<label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>ユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label>'
+            . '<label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label>'
             . '<label>DBパスワード<input name="password" type="password" autocomplete="new-password"></label><button class="primary login-button">接続テストして保存</button></form>'
             . '<p class="help">DB自体はサーバー側で作成してください。接続成功後、アプリ用の不足テーブル・カラム・インデックスは自動作成されます。</p></section></main></body></html>';
     }
