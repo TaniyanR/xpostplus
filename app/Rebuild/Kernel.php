@@ -5,7 +5,6 @@ declare(strict_types=1);
 namespace App\Rebuild;
 
 use PDO;
-use Throwable;
 
 final class Kernel
 {
@@ -30,10 +29,14 @@ final class Kernel
         $routes = [
             '/' => ['ダッシュボード', fn () => $this->dashboard()],
             '/api-posts' => ['API投稿', fn () => $this->sourcePage('api')],
+            '/api-templates' => ['APIテンプレート', fn () => $this->templatePage('api')],
             '/rss-posts' => ['RSS投稿', fn () => $this->sourcePage('rss')],
+            '/rss-templates' => ['RSSテンプレート', fn () => $this->templatePage('rss')],
             '/videos' => ['動画投稿', fn () => $this->sourcePage('video')],
+            '/video-templates' => ['動画テンプレート', fn () => $this->templatePage('video')],
             '/posts' => ['投稿管理', fn () => $this->posts()],
             '/settings' => ['設定', fn () => $this->settings()],
+            '/logout' => ['ログアウト', fn () => $this->logout()],
         ];
 
         if (!isset($routes[$path])) {
@@ -95,7 +98,7 @@ final class Kernel
             $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM templates WHERE source_type = ?');
             $stmt->execute([$type]);
             if ((int)$stmt->fetchColumn() === 0) {
-                $body = $type === 'rss' ? "{title}\n\n{url}\n{hashtags}" : "{title}\n\n{url}\n{hashtags}";
+                $body = "{title}\n\n{url}\n{hashtags}";
                 $now = date('Y-m-d H:i:s');
                 $this->pdo->prepare('INSERT INTO templates (source_type, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)')
                     ->execute([$type, $name, $body, $now, $now]);
@@ -127,7 +130,7 @@ final class Kernel
     private function sourcePage(string $type): string
     {
         $labels = [
-            'api' => ['API投稿', 'FANZA・DUGA・SOKMILから素材を取得します。'],
+            'api' => ['API投稿', 'FANZA・DUGA・SOKUMIRUから素材を取得します。'],
             'rss' => ['RSS投稿', '登録したRSSから記事を一括取得します。'],
             'video' => ['動画投稿', '動画ページURLまたはMP4 URLから素材を登録し、加工します。'],
         ];
@@ -143,15 +146,48 @@ final class Kernel
         }
 
         $sourceForm = match ($type) {
-            'api' => '<div class="source-options"><label><input type="checkbox" checked> FANZA</label><label><input type="checkbox" checked> DUGA</label><label><input type="checkbox" checked> SOKMIL</label></div><label>キーワード<input type="text" placeholder="空欄なら新着"></label><button class="primary" type="button">選択したAPIから一括取得</button>',
+            'api' => '<div class="source-options"><label><input type="checkbox" checked> FANZA</label><label><input type="checkbox" checked> DUGA</label><label><input type="checkbox" checked> SOKUMIRU</label></div><label>キーワード<input type="text" placeholder="空欄なら新着"></label><button class="primary" type="button">選択したAPIから一括取得</button>',
             'rss' => '<p>登録済みRSSを選択してまとめて取得します。</p><button class="primary" type="button">登録RSSから一括取得</button>',
             default => '<label>動画ページURLまたはMP4 URL<input type="url" placeholder="https://..."></label><button class="primary" type="button">動画を取得</button>',
         };
 
         return '<section class="page-head"><h1>' . $title . '</h1><p>' . $description . '</p></section>'
             . '<section class="work-grid"><article class="panel"><h2>1. 素材を取得</h2>' . $sourceForm . '</article>'
-            . '<article class="panel"><h2>2. 投稿設定</h2><label>テンプレート<select>' . $templateHtml . '</select></label><button class="primary" type="button">選択した素材から投稿を作成</button><p class="help">テンプレートはこのページ専用です。最大3件まで登録します。</p></article></section>'
+            . '<article class="panel"><h2>2. 投稿設定</h2><label>テンプレート<select>' . $templateHtml . '</select></label><button class="primary" type="button">選択した素材から投稿を作成</button></article></section>'
             . '<section class="panel"><h2>取得済み素材</h2><div class="empty">まだ素材はありません。上の取得ボタンから追加してください。</div></section>';
+    }
+
+    private function templatePage(string $type): string
+    {
+        $labels = [
+            'api' => ['APIテンプレート', 'API投稿で使用するテンプレートを管理します。'],
+            'rss' => ['RSSテンプレート', 'RSS投稿で使用するテンプレートを管理します。'],
+            'video' => ['動画テンプレート', '動画投稿で使用するテンプレートを管理します。'],
+        ];
+        [$title, $description] = $labels[$type];
+
+        $stmt = $this->pdo->prepare('SELECT * FROM templates WHERE source_type = ? ORDER BY sort_order, id LIMIT 3');
+        $stmt->execute([$type]);
+        $templates = $stmt->fetchAll();
+
+        $cards = '';
+        foreach ($templates as $index => $template) {
+            $cards .= '<article class="template-card">'
+                . '<div class="template-card-head"><div><span class="template-number">テンプレート' . ($index + 1) . '</span><h2>' . $this->e($template['name']) . '</h2></div>'
+                . '<div class="button-row compact"><button class="secondary" type="button">編集</button><button class="danger" type="button">削除</button></div></div>'
+                . '<pre>' . $this->e($template['body']) . '</pre>'
+                . '</article>';
+        }
+
+        $count = count($templates);
+        $addButton = $count < 3
+            ? '<button class="primary" type="button">新規テンプレートを追加</button>'
+            : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
+
+        return '<section class="page-head page-head-actions"><div><h1>' . $title . '</h1><p>' . $description . '</p></div>'
+            . '<div class="template-count">登録数 <strong>' . $count . ' / 3件</strong></div></section>'
+            . '<section class="panel template-guide"><div><h2>利用できるショートコード</h2><p><code>{title}</code> タイトル　<code>{url}</code> URL　<code>{hashtags}</code> ハッシュタグ</p></div>' . $addButton . '</section>'
+            . '<section class="template-grid">' . $cards . '</section>';
     }
 
     private function posts(): string
@@ -168,6 +204,14 @@ final class Kernel
         return '<section class="page-head"><h1>設定</h1><p>DB・ログイン・各取得元の接続設定を管理します。</p></section><section class="panel"><h2>データベース</h2><p>必要なテーブルはアクセス時に自動作成されます。SQLの手動実行は不要です。</p></section>';
     }
 
+    private function logout(): string
+    {
+        $_SESSION = [];
+        session_regenerate_id(true);
+
+        return '<section class="page-head"><h1>ログアウト</h1><p>管理画面からログアウトしました。</p></section><section class="panel"><a class="button" href="' . $this->url('/') . '">管理画面へ戻る</a></section>';
+    }
+
     private function stat(string $label, int $count, string $path): string
     {
         return '<a class="stat" href="' . $this->url($path) . '"><span>' . $this->e($label) . '</span><strong>' . $count . '</strong></a>';
@@ -175,18 +219,33 @@ final class Kernel
 
     private function layout(string $title, string $path, string $content): void
     {
-        $menu = [
-            '/' => 'ダッシュボード',
-            '/api-posts' => 'API投稿',
-            '/rss-posts' => 'RSS投稿',
-            '/videos' => '動画投稿',
-            '/posts' => '投稿管理',
-            '/settings' => '設定',
+        $groups = [
+            'API' => [
+                '/api-posts' => 'API投稿',
+                '/api-templates' => 'APIテンプレート',
+            ],
+            'RSS' => [
+                '/rss-posts' => 'RSS投稿',
+                '/rss-templates' => 'RSSテンプレート',
+            ],
+            '動画' => [
+                '/videos' => '動画投稿',
+                '/video-templates' => '動画テンプレート',
+            ],
         ];
-        $nav = '';
-        foreach ($menu as $url => $label) {
-            $nav .= '<a class="' . ($url === $path ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
+
+        $nav = '<a class="' . ($path === '/' ? 'active' : '') . '" href="' . $this->url('/') . '">ダッシュボード</a>';
+        foreach ($groups as $group => $items) {
+            $nav .= '<div class="nav-group"><span class="nav-heading">' . $group . '</span>';
+            foreach ($items as $url => $label) {
+                $nav .= '<a class="' . ($url === $path ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
+            }
+            $nav .= '</div>';
         }
+        $nav .= '<a class="' . ($path === '/posts' ? 'active' : '') . '" href="' . $this->url('/posts') . '">投稿管理</a>'
+            . '<a class="' . ($path === '/settings' ? 'active' : '') . '" href="' . $this->url('/settings') . '">設定</a>'
+            . '<a class="logout-link" href="' . $this->url('/logout') . '">ログアウト</a>';
+
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . $this->e($title) . ' | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body><div class="app"><aside><h1>XPostPlus</h1><nav>' . $nav . '</nav></aside><main><header><strong>' . $this->e($title) . '</strong></header><div class="content">' . $content . '</div></main></div></body></html>';
     }
 
