@@ -9,7 +9,9 @@ nav a:hover,nav a.active{background:#2271b1}
 .nav-group{display:grid;gap:4px;margin:6px 0}
 .nav-heading{padding:8px 14px 4px;color:#a7aaad;font-size:12px;font-weight:700;letter-spacing:.08em}
 .nav-group a{padding-left:24px}
-.logout-link{margin-top:8px;border-top:1px solid #3c434a;border-radius:0;padding-top:18px}
+.logout-form{margin-top:8px;border-top:1px solid #3c434a;padding-top:8px}
+.logout-link{display:block;width:100%;padding:11px 14px;background:transparent;border:0;border-radius:8px;color:#fff;text-align:left;font:inherit;font-weight:600;cursor:pointer}
+.logout-link:hover{background:#2271b1}
 main{min-width:0}
 header{height:64px;background:#fff;border-bottom:1px solid #dcdcde;display:flex;align-items:center;padding:0 28px;font-size:20px}
 .content{padding:24px;max-width:1400px;margin:0 auto}
@@ -46,6 +48,17 @@ header{height:64px;background:#fff;border-bottom:1px solid #dcdcde;display:flex;
 .template-card h2{margin:5px 0 0}
 .template-number{color:#646970;font-size:13px;font-weight:700}
 .template-card pre{margin:20px 0 0;padding:18px;background:#f6f7f7;border:1px solid #dcdcde;border-radius:8px;white-space:pre-wrap;word-break:break-word;font:14px/1.7 monospace}
+.login-body{min-height:100vh;display:grid;place-items:center;padding:20px}
+.login-shell{width:100%;max-width:420px}
+.login-card{background:#fff;border:1px solid #dcdcde;border-radius:12px;padding:32px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
+.login-card h1{margin:0 0 8px;font-size:30px}
+.login-card>p{margin:0 0 24px;color:#646970}
+.login-card label,.password-panel label{display:grid;gap:7px;margin-bottom:18px;font-weight:600}
+.login-card input,.password-panel input{width:100%;padding:12px;border:1px solid #8c8f94;border-radius:6px;font:inherit}
+.login-button{width:100%}
+.notice{margin:0 0 18px;padding:12px 14px;border-left:4px solid #2271b1;background:#f0f6fc}
+.notice.error{border-left-color:#d63638;background:#fcf0f1;color:#8a2424}
+.password-panel{max-width:640px}
 @media(max-width:900px){
   .app{grid-template-columns:1fr}
   aside{position:static}
