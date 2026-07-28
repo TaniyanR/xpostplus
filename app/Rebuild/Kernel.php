@@ -63,10 +63,6 @@ final class Kernel
             $this->serveMedia(substr($path, 7));
         }
 
-        if (!empty($_SESSION['force_password_change']) && $path !== '/password' && $path !== '/logout') {
-            $this->redirect('/password');
-        }
-
         if ($path === '/password') {
             if ($method === 'POST') {
                 $this->handlePasswordChange();
@@ -1157,13 +1153,12 @@ final class Kernel
         $error = $this->pullFlash('error');
         $first = (int)$this->pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
         $errorHtml = $error !== '' ? '<div class="notice error">' . $this->e($error) . '</div>' : '';
-        $fields = $first
-            ? '<input type="hidden" name="install" value="1"><label>管理者ユーザー名<input name="login" type="text" maxlength="100" autocomplete="username" required autofocus></label><label>メールアドレス<input name="email" type="email" maxlength="190" autocomplete="email" required></label><label>パスワード（12文字以上）<input name="password" type="password" minlength="12" autocomplete="new-password" required></label><label>パスワード（確認）<input name="password_confirmation" type="password" minlength="12" autocomplete="new-password" required></label>'
-            : '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>';
-        $heading = $first ? '初期管理者を作成' : '管理画面へログインしてください。';
-        $button = $first ? '管理者を作成' : 'ログイン';
+        $notice = $first ? '<div class="notice">初期ID：<strong>admin</strong><br>初期パスワード：<strong>password</strong></div>' : '';
+        $fields = '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>';
+        $heading = '管理画面へログインしてください。';
+        $button = 'ログイン';
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->url('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>' . $heading . '</p>' . $errorHtml
-            . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
+            . $notice . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
             . '<button class="primary login-button" type="submit">' . $button . '</button></form></section></main></body></html>';
     }
 
@@ -1185,15 +1180,13 @@ final class Kernel
             ->execute([date('Y-m-d H:i:s', time() - 86400)]);
 
         if ($first) {
-            $email = trim((string)($_POST['email'] ?? ''));
-            $confirmation = (string)($_POST['password_confirmation'] ?? '');
-            if (!isset($_POST['install']) || !filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($password) < 12 || !hash_equals($password, $confirmation)) {
-                $this->flash('error', 'ユーザー名、メールアドレス、12文字以上のパスワードを正しく入力してください。');
+            if ($login !== 'admin' || $password !== 'password') {
+                $this->flash('error', '初回はID「admin」、パスワード「password」でログインしてください。');
                 $this->redirect('/login');
             }
             $now = date('Y-m-d H:i:s');
             $this->pdo->prepare('INSERT INTO users (name, email, password_hash, created_at, updated_at) VALUES (?, ?, ?, ?, ?)')
-                ->execute([$login, $email, password_hash($password, PASSWORD_DEFAULT), $now, $now]);
+                ->execute(['admin', 'admin@localhost', password_hash('password', PASSWORD_DEFAULT), $now, $now]);
         }
 
         $attemptKey = substr($login, 0, 190);
@@ -1255,7 +1248,6 @@ final class Kernel
 
         $this->pdo->prepare('UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?')
             ->execute([password_hash($password, PASSWORD_DEFAULT), date('Y-m-d H:i:s'), (int)$_SESSION['user_id']]);
-        unset($_SESSION['force_password_change']);
         session_regenerate_id(true);
         $this->redirect('/');
     }
