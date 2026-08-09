@@ -105,7 +105,14 @@ final class Kernel
         $routes = [
             '/' => ['ダッシュボード', fn () => $this->dashboard()],
             '/api-posts' => ['API投稿', fn () => $this->apiPage()],
-            '/api-templates' => ['APIテンプレート', fn () => $this->templatePage('api')],
+            '/api-settings' => ['API設定', fn () => $this->apiSettingsOverview()],
+            '/api-settings/fanza' => ['FANZA設定', fn () => $this->apiSettingsPage('fanza')],
+            '/api-settings/duga' => ['DUGA設定', fn () => $this->apiSettingsPage('duga')],
+            '/api-settings/sokumiru' => ['SOKUMIRU設定', fn () => $this->apiSettingsPage('sokumiru')],
+            '/api-templates' => ['APIテンプレート', fn () => $this->apiTemplatesOverview()],
+            '/api-templates/fanza' => ['FANZAテンプレート', fn () => $this->templatePage('api', 'fanza')],
+            '/api-templates/duga' => ['DUGAテンプレート', fn () => $this->templatePage('api', 'duga')],
+            '/api-templates/sokumiru' => ['SOKUMIRUテンプレート', fn () => $this->templatePage('api', 'sokumiru')],
             '/rss-posts' => ['RSS投稿', fn () => $this->rssPage()],
             '/rss-templates' => ['RSSテンプレート', fn () => $this->templatePage('rss')],
             '/videos' => ['動画投稿', fn () => $this->videoPage()],
@@ -166,7 +173,7 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_items (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), external_id VARCHAR(190), feed_id INTEGER, title VARCHAR(500) NOT NULL, description {$text}, source_url VARCHAR(1000), affiliate_url VARCHAR(1000), image_url VARCHAR(1000), media_url VARCHAR(1000), actress VARCHAR(500), genre VARCHAR(500), published_at DATETIME, raw_json {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_media (id {$id}, source_item_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000) NOT NULL, local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_video_jobs (id {$id}, source_item_id INTEGER, input_type VARCHAR(20) NOT NULL, input_url VARCHAR(1000) NOT NULL, source_path VARCHAR(1000), output_path VARCHAR(1000), status VARCHAR(30) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, start_seconds DECIMAL(12,3), end_seconds DECIMAL(12,3), aspect_ratio VARCHAR(10) NOT NULL DEFAULT 'original', quality VARCHAR(20) NOT NULL DEFAULT 'standard', muted INTEGER NOT NULL DEFAULT 0, source_size BIGINT, output_size BIGINT, error_message {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_posts (id {$id}, source_type VARCHAR(20) NOT NULL, source_item_id INTEGER, template_id INTEGER, title VARCHAR(500) NOT NULL, body {$text} NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft', copied_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_post_media (id {$id}, post_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000), local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_activity_logs (id {$id}, user_id INTEGER, action VARCHAR(100) NOT NULL, target_type VARCHAR(50), target_id INTEGER, message {$text}, created_at DATETIME NOT NULL)");
@@ -177,7 +184,7 @@ final class Kernel
         $this->ensureColumns('xpp_source_items', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'external_id' => 'VARCHAR(190) NULL', 'feed_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'description' => 'LONGTEXT NULL', 'source_url' => 'VARCHAR(1000) NULL', 'affiliate_url' => 'VARCHAR(1000) NULL', 'image_url' => 'VARCHAR(1000) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'actress' => 'VARCHAR(500) NULL', 'genre' => 'VARCHAR(500) NULL', 'published_at' => 'DATETIME NULL', 'raw_json' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_source_media', ['source_item_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_video_jobs', ['source_item_id' => 'INTEGER NULL', 'input_type' => 'VARCHAR(20) NULL', 'input_url' => 'VARCHAR(1000) NULL', 'source_path' => 'VARCHAR(1000) NULL', 'output_path' => 'VARCHAR(1000) NULL', 'status' => "VARCHAR(30) NOT NULL DEFAULT 'pending'", 'progress' => 'INTEGER NOT NULL DEFAULT 0', 'start_seconds' => 'DECIMAL(12,3) NULL', 'end_seconds' => 'DECIMAL(12,3) NULL', 'aspect_ratio' => "VARCHAR(10) NOT NULL DEFAULT 'original'", 'quality' => "VARCHAR(20) NOT NULL DEFAULT 'standard'", 'muted' => 'INTEGER NOT NULL DEFAULT 0', 'source_size' => 'BIGINT NULL', 'output_size' => 'BIGINT NULL', 'error_message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
-        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
+        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_posts', ['source_type' => 'VARCHAR(20) NULL', 'source_item_id' => 'INTEGER NULL', 'template_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'body' => 'LONGTEXT NULL', 'status' => "VARCHAR(20) NOT NULL DEFAULT 'draft'", 'copied_at' => 'DATETIME NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_post_media', ['post_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_activity_logs', ['user_id' => 'INTEGER NULL', 'action' => 'VARCHAR(100) NULL', 'target_type' => 'VARCHAR(50) NULL', 'target_id' => 'INTEGER NULL', 'message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL']);
@@ -188,6 +195,7 @@ final class Kernel
         $this->createIndex('idx_xpp_media_item', 'xpp_source_media', 'source_item_id, sort_order');
         $this->createIndex('idx_xpp_video_status', 'xpp_video_jobs', 'status, created_at');
         $this->createIndex('idx_xpp_templates_type', 'xpp_templates', 'source_type, sort_order');
+        $this->createIndex('idx_xpp_templates_service', 'xpp_templates', 'source_type, service, sort_order');
         $this->createIndex('idx_xpp_posts_status', 'xpp_posts', 'status, created_at');
         $this->createIndex('idx_xpp_post_media_post', 'xpp_post_media', 'post_id, sort_order');
         $migration = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_migrations WHERE version=1');
@@ -196,14 +204,24 @@ final class Kernel
             $this->pdo->prepare('INSERT INTO xpp_migrations(version,applied_at) VALUES(1,?)')->execute([$this->now()]);
         }
 
-        foreach (['api' => '標準API投稿', 'rss' => '標準RSS投稿', 'video' => '標準動画投稿'] as $type => $name) {
-            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type = ?');
-            $stmt->execute([$type]);
+        $this->pdo->exec("UPDATE xpp_templates SET service='fanza' WHERE source_type='api' AND service IS NULL");
+        $defaults = [
+            ['api', 'fanza', '標準FANZA投稿'],
+            ['api', 'duga', '標準DUGA投稿'],
+            ['api', 'sokumiru', '標準SOKUMIRU投稿'],
+            ['rss', null, '標準RSS投稿'],
+            ['video', null, '標準動画投稿'],
+        ];
+        foreach ($defaults as [$type, $service, $name]) {
+            $stmt = $service === null
+                ? $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service IS NULL')
+                : $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service=?');
+            $stmt->execute($service === null ? [$type] : [$type, $service]);
             if ((int)$stmt->fetchColumn() === 0) {
                 $body = "{title}\n\n{url}\n{hashtags}";
                 $now = date('Y-m-d H:i:s');
-                $this->pdo->prepare('INSERT INTO xpp_templates (source_type, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)')
-                    ->execute([$type, $name, $body, $now, $now]);
+                $this->pdo->prepare('INSERT INTO xpp_templates (source_type, service, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
+                    ->execute([$type, $service, $name, $body, $now, $now]);
             }
         }
     }
@@ -212,7 +230,7 @@ final class Kernel
     {
         return '<section class="page-head dashboard-head"><h1>作業を選択</h1><p>素材の種類ごとに「投稿」と「テンプレート」をまとめています。</p></section>'
             . '<section class="dashboard-source-grid">'
-            . $this->dashboardGroup('API', 'FANZA・DUGA・SOKUMIRUの商品を取得', '/api-posts', '/api-templates')
+            . $this->dashboardGroup('API', 'FANZA・DUGA・SOKUMIRUの商品を取得', '/api-posts', '/api-settings', 'API設定・テンプレート')
             . $this->dashboardGroup('RSS', '登録したRSSから記事を取得', '/rss-posts', '/rss-templates')
             . $this->dashboardGroup('動画', '動画を取得・編集して素材を作成', '/videos', '/video-templates')
             . '</section>'
@@ -235,7 +253,7 @@ final class Kernel
             . '<section class="page-head"><h1>API投稿</h1><p>APIから商品を取得し、必要な素材を選んで投稿を作成します。</p></section>'
             . '<section class="panel"><form method="post" action="' . $this->url('/api-posts/fetch') . '">' . $this->csrfField()
             . '<div class="source-options">' . $checks . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label>'
-            . '<div class="button-row left"><button class="primary" type="submit">取得する</button><a class="secondary" href="' . $this->url('/settings') . '">API設定を開く</a></div></form></section>'
+            . '<div class="button-row left"><button class="primary" type="submit">取得する</button><a class="secondary" href="' . $this->url('/api-settings/fanza') . '">FANZA設定</a><a class="secondary" href="' . $this->url('/api-settings/duga') . '">DUGA設定</a><a class="secondary" href="' . $this->url('/api-settings/sokumiru') . '">SOKUMIRU設定</a></div></form></section>'
             . $this->itemList('api', $items);
     }
 
@@ -249,15 +267,16 @@ final class Kernel
         }
         $feedOptions = '';
         foreach ($feeds as $feed) {
-            $feedOptions .= '<label><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked> ' . $this->e($feed['name']) . '</label>';
+            $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
+            $feedOptions .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
         }
         return $this->flashHtml()
             . '<section class="page-head"><h1>RSS投稿</h1><p>RSSを登録・取得し、必要な記事から投稿を作成します。</p></section>'
-            . '<section class="work-grid"><article class="panel"><h2>RSS登録</h2><form method="post" action="' . $this->url('/rss-feeds/save') . '">' . $this->csrfField()
-            . '<label>RSS名<input name="name" required maxlength="190"></label><label>RSS URL<input name="feed_url" type="url" required maxlength="1000"></label><button class="primary">登録</button></form></article>'
-            . '<article class="panel"><h2>RSS取得</h2><form method="post" action="' . $this->url('/rss-posts/fetch') . '">' . $this->csrfField()
-            . '<div class="check-list">' . ($feedOptions ?: '<p>先にRSSを登録してください。</p>') . '</div><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSを取得</button></form></article></section>'
-            . '<section class="panel"><h2>登録済みRSS</h2><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></section>'
+            . '<section class="rss-tools-grid"><article class="panel rss-register-panel"><div class="section-title"><span>1</span><div><h2>RSS登録</h2><p>取得したいサイトのRSSを登録します。</p></div></div><form method="post" action="' . $this->url('/rss-feeds/save') . '">' . $this->csrfField()
+            . '<label>RSS名<input name="name" required maxlength="190" placeholder="例：サイト名"></label><label>RSS URL<input name="feed_url" type="url" required maxlength="1000" placeholder="https://example.com/feed/"></label><button class="primary">RSSを登録</button></form></article>'
+            . '<article class="panel rss-fetch-panel"><div class="section-title"><span>2</span><div><h2>RSS取得</h2><p>記事を取得するRSSを選択します。</p></div></div><form method="post" action="' . $this->url('/rss-posts/fetch') . '">' . $this->csrfField()
+            . '<div class="check-list feed-choice-list">' . ($feedOptions ?: '<div class="empty compact-empty">先に左のフォームからRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから記事を取得</button></div></form></article></section>'
+            . '<section class="panel registered-feeds"><div class="section-title"><span>3</span><div><h2>登録済みRSS</h2><p>現在登録されている取得元です。</p></div></div><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></section>'
             . $this->itemList('rss', $this->items('rss'));
     }
 
@@ -284,32 +303,41 @@ final class Kernel
             . $this->itemList('video', $this->items('video'));
     }
 
-    private function templatePage(string $type): string
+    private function templatePage(string $type, ?string $service = null): string
     {
         $labels = [
-            'api' => ['APIテンプレート', 'API投稿で使用するテンプレートを管理します。'],
+            'api:fanza' => ['FANZAテンプレート', 'FANZAの商品から投稿を作成するときに使用します。'],
+            'api:duga' => ['DUGAテンプレート', 'DUGAの商品から投稿を作成するときに使用します。'],
+            'api:sokumiru' => ['SOKUMIRUテンプレート', 'SOKUMIRUの商品から投稿を作成するときに使用します。'],
             'rss' => ['RSSテンプレート', 'RSS投稿で使用するテンプレートを管理します。'],
             'video' => ['動画テンプレート', '動画投稿で使用するテンプレートを管理します。'],
         ];
-        [$title, $description] = $labels[$type];
+        $labelKey = $type === 'api' ? 'api:' . $service : $type;
+        if (!isset($labels[$labelKey])) {
+            $this->notFound();
+        }
+        [$title, $description] = $labels[$labelKey];
 
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type = ? ORDER BY sort_order, id LIMIT 3');
-        $stmt->execute([$type]);
+        $stmt = $service === null
+            ? $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? AND service IS NULL ORDER BY sort_order,id LIMIT 3')
+            : $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? AND service=? ORDER BY sort_order,id LIMIT 3');
+        $stmt->execute($service === null ? [$type] : [$type, $service]);
         $templates = $stmt->fetchAll();
+        $serviceField = '<input type="hidden" name="template_service" value="' . $this->e((string)$service) . '">';
 
         $cards = '';
         foreach ($templates as $index => $template) {
             $cards .= '<article class="template-card">'
                 . '<div class="template-card-head"><div><span class="template-number">テンプレート' . ($index + 1) . '</span><h2>' . $this->e($template['name']) . '</h2></div>'
-                . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '"><button class="danger">削除</button></form></div>'
-                . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">'
+                . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<button class="danger">削除</button></form></div>'
+                . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField
                 . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label><button class="primary">保存</button></form>'
                 . '</article>';
         }
 
         $count = count($templates);
         $addButton = $count < 3
-            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
+            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
         return $this->flashHtml() . '<section class="page-head page-head-actions"><div><h1>' . $title . '</h1><p>' . $description . '</p></div>'
@@ -351,33 +379,69 @@ final class Kernel
 
     private function settings(): string
     {
-        $cards = '';
-        $fields = [
-            'fanza' => ['FANZA', ['api_id' => 'API ID', 'affiliate_id' => 'アフィリエイトID']],
-            'duga' => ['DUGA', ['appid' => 'アプリケーションID', 'agentid' => '代理店ID', 'bannerid' => 'バナーID']],
-            'sokumiru' => ['SOKUMIRU', ['api_key' => 'API KEY', 'affiliate_id' => 'アフィリエイトID']],
-        ];
-        foreach ($fields as $service => [$label, $inputs]) {
-            $saved = $this->apiCredentials($service);
-            $form = '';
-            foreach ($inputs as $key => $caption) {
-                $type = $key === 'endpoint' ? 'url' : 'password';
-                $placeholder = isset($saved[$key]) && $saved[$key] !== '' ? '保存済み（変更する場合のみ入力）' : '';
-                $form .= '<label>' . $caption . '<input type="' . $type . '" name="credentials[' . $key . ']" placeholder="' . $this->e($placeholder) . '"></label>';
-            }
-            $cards .= '<article class="panel"><h2>' . $label . '</h2><form method="post" action="' . $this->url('/settings/api') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '">' . $form . '<label class="inline-check"><input type="checkbox" name="enabled" value="1" checked> 有効</label><button class="primary">保存</button></form>'
-                . '<form method="post" action="' . $this->url('/settings/api-test') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '"><button class="secondary">接続テスト</button></form></article>';
-        }
         $db = $this->databaseConfig();
         $userStmt = $this->pdo->prepare('SELECT name,email FROM users WHERE id=?');
         $userStmt->execute([(int)$_SESSION['user_id']]);
         $user = $userStmt->fetch() ?: ['name' => '', 'email' => ''];
-        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DB・API・ログイン情報を管理します。</p></section><section class="settings-grid">' . $cards . '</section>'
+        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DBとログイン情報を管理します。各動画サイトの情報は左メニューの「API」から設定できます。</p></section>'
             . '<section class="panel"><h2>MariaDB設定</h2><p>保存前に接続テストを行います。パスワードは変更する場合だけ入力してください。</p><form method="post" action="' . $this->url('/settings/database') . '">' . $this->csrfField()
             . '<div class="form-grid"><label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label></div><label>DBパスワード<input name="password" type="password" placeholder="保存済み（変更する場合のみ入力）"></label><button class="primary">接続テストして保存</button></form></section>'
             . '<section class="panel password-panel"><h2>ログイン情報</h2><form method="post" action="' . $this->url('/settings/profile') . '">' . $this->csrfField()
             . '<label>ユーザー名<input name="name" value="' . $this->e($user['name']) . '" required maxlength="100"></label><label>メールアドレス<input name="email" type="email" value="' . $this->e($user['email']) . '" required maxlength="190"></label><button class="primary">ログイン情報を保存</button></form></section>'
             . $this->passwordPage();
+    }
+
+    private function apiSettingsPage(string $service): string
+    {
+        $definitions = [
+            'fanza' => ['FANZA設定', 'FANZAの商品情報を取得するための認証情報を設定します。', ['api_id' => 'API ID', 'affiliate_id' => 'アフィリエイトID']],
+            'duga' => ['DUGA設定', 'DUGAの商品情報を取得するための認証情報を設定します。', ['appid' => 'アプリケーションID', 'agentid' => '代理店ID', 'bannerid' => 'バナーID']],
+            'sokumiru' => ['SOKUMIRU設定', 'SOKUMIRUの商品情報を取得するための認証情報を設定します。', ['api_key' => 'API KEY', 'affiliate_id' => 'アフィリエイトID']],
+        ];
+        if (!isset($definitions[$service])) {
+            $this->notFound();
+        }
+        [$title, $description, $inputs] = $definitions[$service];
+        $saved = $this->apiCredentials($service);
+        $statusStmt = $this->pdo->prepare('SELECT enabled,test_status,tested_at,test_message FROM xpp_api_settings WHERE service=?');
+        $statusStmt->execute([$service]);
+        $status = $statusStmt->fetch() ?: [];
+        $fields = '';
+        foreach ($inputs as $key => $caption) {
+            $placeholder = isset($saved[$key]) && $saved[$key] !== '' ? '保存済み（変更する場合のみ入力）' : '';
+            $fields .= '<label>' . $caption . '<input type="password" name="credentials[' . $key . ']" placeholder="' . $this->e($placeholder) . '" autocomplete="off"></label>';
+        }
+        $checked = !isset($status['enabled']) || (int)$status['enabled'] === 1 ? ' checked' : '';
+        $testLabel = empty($status['tested_at']) ? '未実施' : (($status['test_status'] ?? '') === 'success' ? '接続成功' : '接続エラー');
+        $testDetail = !empty($status['tested_at']) ? '<p class="help">最終テスト：' . $this->e((string)$status['tested_at']) . '／' . $this->e($testLabel) . '</p>' : '<p class="help">接続テストはまだ行われていません。</p>';
+        return $this->flashHtml() . '<section class="page-head"><h1>' . $this->e($title) . '</h1><p>' . $this->e($description) . '</p></section>'
+            . '<section class="panel api-settings-panel"><h2>認証情報</h2>' . $testDetail
+            . '<form method="post" action="' . $this->url('/settings/api') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '">' . $fields
+            . '<label class="inline-check"><input type="checkbox" name="enabled" value="1"' . $checked . '> このAPIを有効にする</label><button class="primary">保存する</button></form>'
+            . '<hr><h2>接続確認</h2><p>保存した情報を使って商品を1件取得できるか確認します。</p><form method="post" action="' . $this->url('/settings/api-test') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '"><button class="secondary">接続テストを実行</button></form></section>';
+    }
+
+    private function apiSettingsOverview(): string
+    {
+        $cards = '';
+        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
+            $cards .= '<article class="panel api-overview-card"><h2>' . $label . '</h2><p>API認証情報と専用テンプレートを管理します。</p><div class="button-row left">'
+                . '<a class="primary" href="' . $this->url('/api-settings/' . $service) . '">' . $label . '設定</a>'
+                . '<a class="secondary" href="' . $this->url('/api-templates/' . $service) . '">' . $label . 'テンプレート</a></div></article>';
+        }
+        return '<section class="page-head"><h1>API設定</h1><p>動画サイトごとにAPI情報と投稿テンプレートを設定します。</p></section><section class="settings-grid">' . $cards . '</section>';
+    }
+
+    private function apiTemplatesOverview(): string
+    {
+        $cards = '';
+        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
+            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=\'api\' AND service=?');
+            $stmt->execute([$service]);
+            $count = (int)$stmt->fetchColumn();
+            $cards .= '<a class="guide-card api-template-overview-card" href="' . $this->url('/api-templates/' . $service) . '"><h2>' . $label . 'テンプレート</h2><p>' . $label . '商品専用です。他サイトの商品には使用されません。</p><span>登録数 ' . $count . ' / 3件　管理する →</span></a>';
+        }
+        return '<section class="page-head"><h1>APIテンプレート</h1><p>動画サイトごとに専用テンプレートを最大3件まで登録できます。</p></section><section class="settings-grid">' . $cards . '</section>';
     }
 
     private function saveProfile(): never
@@ -399,13 +463,14 @@ final class Kernel
     private function saveApiSettings(): never
     {
         $service = (string)($_POST['service'] ?? '');
+        $redirect = $this->apiSettingsPath($service);
         $required = [
             'fanza' => ['api_id', 'affiliate_id'],
             'duga' => ['appid', 'agentid', 'bannerid'],
             'sokumiru' => ['api_key', 'affiliate_id'],
         ];
         if (!isset($required[$service])) {
-            $this->fail('未対応のAPIです。', '/settings');
+            $this->fail('未対応のAPIです。', '/api-posts');
         }
         $current = $this->apiCredentials($service);
         $input = is_array($_POST['credentials'] ?? null) ? $_POST['credentials'] : [];
@@ -415,13 +480,13 @@ final class Kernel
                 $current[$key] = $value;
             }
             if (empty($current[$key])) {
-                $this->fail('必須項目をすべて入力してください。', '/settings');
+                $this->fail('必須項目をすべて入力してください。', $redirect);
             }
         }
         try {
             $payload = $this->encryptCredentials($current);
         } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/settings');
+            $this->fail($e->getMessage(), $redirect);
         }
         $enabled = isset($_POST['enabled']) ? 1 : 0;
         $now = $this->now();
@@ -433,7 +498,7 @@ final class Kernel
             $this->pdo->prepare('INSERT INTO xpp_api_settings(service,credentials,enabled,updated_at) VALUES(?,?,?,?)')->execute([$service, $payload, $enabled, $now]);
         }
         $this->log('api_settings_saved', 'api', null, $service);
-        $this->success('API設定を保存しました。', '/settings');
+        $this->success('API設定を保存しました。続けて接続テストを行ってください。', $redirect);
     }
 
     private function databaseConfig(): array
@@ -494,6 +559,7 @@ final class Kernel
     private function testApiSettings(): never
     {
         $service = (string)($_POST['service'] ?? '');
+        $redirect = $this->apiSettingsPath($service);
         try {
             $items = $this->requestApi($service, '', 1);
             $message = '接続に成功しました。取得件数：' . count($items);
@@ -504,7 +570,12 @@ final class Kernel
         }
         $this->pdo->prepare('UPDATE xpp_api_settings SET tested_at=?,test_status=?,test_message=? WHERE service=?')
             ->execute([$this->now(), $status, mb_substr($message, 0, 500), $service]);
-        $status === 'success' ? $this->success($message, '/settings') : $this->fail($message, '/settings');
+        $status === 'success' ? $this->success($message, $redirect) : $this->fail($message, $redirect);
+    }
+
+    private function apiSettingsPath(string $service): string
+    {
+        return in_array($service, ['fanza', 'duga', 'sokumiru'], true) ? '/api-settings/' . $service : '/api-posts';
     }
 
     private function fetchApiItems(): never
@@ -535,12 +606,16 @@ final class Kernel
             throw new \RuntimeException(strtoupper($service) . 'のAPI設定がありません。');
         }
         if ($service === 'fanza') {
-            $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query([
+            $params = [
                 'api_id' => $credentials['api_id'], 'affiliate_id' => $credentials['affiliate_id'],
                 'site' => 'FANZA', 'service' => 'digital', 'floor' => 'videoa',
-                'hits' => min(100, $hits), 'sort' => 'date', 'keyword' => $keyword, 'output' => 'json',
-            ]);
-            $data = $this->httpJson($url);
+                'hits' => min(100, $hits), 'sort' => 'date', 'output' => 'json',
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query($params);
+            $data = $this->httpJson($url, 'FANZA');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
                 throw new \RuntimeException('FANZA APIがエラーを返しました。');
             }
@@ -558,12 +633,16 @@ final class Kernel
             ], $rows);
         }
         if ($service === 'duga') {
-            $url = 'https://affapi.duga.jp/search?' . http_build_query([
+            $params = [
                 'version' => '1.2', 'appid' => $credentials['appid'], 'agentid' => $credentials['agentid'],
-                'bannerid' => $credentials['bannerid'], 'format' => 'json', 'keyword' => $keyword,
+                'bannerid' => $credentials['bannerid'], 'format' => 'json',
                 'hits' => min(100, $hits), 'adult' => 1, 'sort' => 'new',
-            ]);
-            $data = $this->httpJson($url);
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://affapi.duga.jp/search?' . http_build_query($params);
+            $data = $this->httpJson($url, 'DUGA');
             $rows = $data['items']['item'] ?? $data['items'] ?? [];
             $rows = $this->normalizeRows($rows, 'productid');
             return array_map(function (array $row): array {
@@ -583,11 +662,15 @@ final class Kernel
             }, $rows);
         }
         if ($service === 'sokumiru') {
-            $url = 'https://sokmil-ad.com/api/v1/Item?' . http_build_query([
+            $params = [
                 'affiliate_id' => $credentials['affiliate_id'], 'api_key' => $credentials['api_key'],
-                'output' => 'json', 'hits' => min(100, $hits), 'sort' => 'date', 'category' => 'av', 'keyword' => $keyword,
-            ]);
-            $data = $this->httpJson($url);
+                'output' => 'json', 'hits' => min(100, $hits), 'sort' => 'date', 'category' => 'av',
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://sokmil-ad.com/api/v1/Item?' . http_build_query($params);
+            $data = $this->httpJson($url, 'SOKUMIRU');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
                 throw new \RuntimeException('SOKUMIRU APIがエラーを返しました。');
             }
@@ -674,30 +757,50 @@ final class Kernel
         if (!in_array($type, ['api', 'rss', 'video'], true)) {
             $this->notFound();
         }
+        $service = $type === 'api' && in_array($_POST['template_service'] ?? '', ['fanza', 'duga', 'sokumiru'], true)
+            ? (string)$_POST['template_service'] : null;
+        if ($type === 'api' && $service === null) {
+            $this->fail('動画サイトを確認できません。', '/api-posts');
+        }
+        $redirect = $this->templatePath($type, $service);
         $id = (int)($_POST['id'] ?? 0);
         $name = trim((string)($_POST['name'] ?? ''));
         $body = trim((string)($_POST['body'] ?? ''));
         if ($name === '' || $body === '') {
-            $this->fail('名前と本文を入力してください。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+            $this->fail('名前と本文を入力してください。', $redirect);
         }
         if ($id > 0) {
-            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,updated_at=? WHERE id=? AND source_type=?')->execute([$name, $body, $this->now(), $id, $type]);
+            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,updated_at=? WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
+                ->execute([$name, $body, $this->now(), $id, $type, $service, $service]);
         } else {
-            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=?');
-            $stmt->execute([$type]);
+            $stmt = $service === null
+                ? $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service IS NULL')
+                : $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service=?');
+            $stmt->execute($service === null ? [$type] : [$type, $service]);
             if ((int)$stmt->fetchColumn() >= 3) {
-                $this->fail('テンプレートは最大3件です。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+                $this->fail('テンプレートは最大3件です。', $redirect);
             }
-            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,name,body,sort_order,created_at,updated_at) VALUES(?,?,?,99,?,?)')->execute([$type, $name, $body, $this->now(), $this->now()]);
+            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,service,name,body,sort_order,created_at,updated_at) VALUES(?,?,?,?,99,?,?)')->execute([$type, $service, $name, $body, $this->now(), $this->now()]);
         }
-        $this->success('テンプレートを保存しました。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+        $this->success('テンプレートを保存しました。', $redirect);
     }
 
     private function deleteTemplate(): never
     {
         $type = (string)($_POST['source_type'] ?? '');
-        $this->pdo->prepare('DELETE FROM xpp_templates WHERE id=? AND source_type=?')->execute([(int)($_POST['id'] ?? 0), $type]);
-        $this->success('テンプレートを削除しました。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+        $service = $type === 'api' && in_array($_POST['template_service'] ?? '', ['fanza', 'duga', 'sokumiru'], true)
+            ? (string)$_POST['template_service'] : null;
+        $this->pdo->prepare('DELETE FROM xpp_templates WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
+            ->execute([(int)($_POST['id'] ?? 0), $type, $service, $service]);
+        $this->success('テンプレートを削除しました。', $this->templatePath($type, $service));
+    }
+
+    private function templatePath(string $type, ?string $service): string
+    {
+        if ($type === 'api' && in_array($service, ['fanza', 'duga', 'sokumiru'], true)) {
+            return '/api-templates/' . $service;
+        }
+        return $type === 'video' ? '/video-templates' : '/rss-templates';
     }
 
     private function analyzeVideo(): never
@@ -783,8 +886,8 @@ final class Kernel
         $itemStmt = $this->pdo->prepare('SELECT * FROM xpp_source_items WHERE id=?');
         $itemStmt->execute([$itemId]);
         $item = $itemStmt->fetch();
-        $tplStmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE id=? AND source_type=?');
-        $tplStmt->execute([$templateId, $item['source_type'] ?? '']);
+        $tplStmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE id=? AND source_type=? AND (source_type<>\'api\' OR service=?)');
+        $tplStmt->execute([$templateId, $item['source_type'] ?? '', $item['service'] ?? '']);
         $template = $tplStmt->fetch();
         if (!$item || !$template) {
             $this->fail('素材またはテンプレートが見つかりません。', '/posts');
@@ -837,11 +940,19 @@ final class Kernel
 
     private function itemList(string $type, array $items): string
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? ORDER BY sort_order,id LIMIT 3');
+        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? ORDER BY service,sort_order,id');
         $stmt->execute([$type]);
-        $templates = $stmt->fetchAll();
+        $templateGroups = [];
+        foreach ($stmt->fetchAll() as $template) {
+            $key = $type === 'api' ? (string)($template['service'] ?? '') : 'common';
+            if (count($templateGroups[$key] ?? []) < 3) {
+                $templateGroups[$key][] = $template;
+            }
+        }
         $cards = '';
         foreach ($items as $item) {
+            $templateKey = $type === 'api' ? (string)$item['service'] : 'common';
+            $templates = $templateGroups[$templateKey] ?? [];
             $options = '';
             foreach ($templates as $template) {
                 $options .= '<option value="' . (int)$template['id'] . '">' . $this->e($template['name']) . '</option>';
@@ -853,7 +964,12 @@ final class Kernel
                 . '<form class="item-delete" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">個別削除</button></form></div></article>';
         }
         $actions = $items ? '<form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="button-row left"><button type="button" class="secondary" data-select-all=".item-card input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した素材を一括削除</button></div></form>' : '';
-        return '<section class="panel item-section"><h2>取得済み素材</h2>' . $actions . '<div class="item-grid">' . ($cards ?: '<div class="empty">まだ素材はありません。</div>') . '</div></section>';
+        $heading = $type === 'rss' ? '取得済み記事' : '取得済み素材';
+        $emptyText = $type === 'rss' ? 'まだ記事を取得していません。' : 'まだ素材はありません。';
+        $titleHtml = $type === 'rss'
+            ? '<div class="section-title"><span>4</span><div><h2>' . $heading . '</h2><p>投稿に使用する記事を選んで投稿を作成します。</p></div></div>'
+            : '<h2>' . $heading . '</h2>';
+        return '<section class="panel item-section">' . $titleHtml . $actions . '<div class="item-grid">' . ($cards ?: '<div class="empty">' . $emptyText . '</div>') . '</div></section>';
     }
 
     private function deleteSourceItems(): never
@@ -934,10 +1050,7 @@ final class Kernel
         if (!extension_loaded('sodium')) {
             throw new \RuntimeException('API暗号化にはPHP Sodium拡張が必要です。');
         }
-        $appKey = (string)(getenv('APP_KEY') ?: '');
-        if (strlen($appKey) < 32) {
-            throw new \RuntimeException('APP_KEYに32文字以上のランダム文字列を設定してください。');
-        }
+        $appKey = $this->applicationKey();
         $key = sodium_crypto_generichash($appKey, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         return 'enc:v1:' . base64_encode($nonce . sodium_crypto_secretbox(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $nonce, $key));
@@ -949,9 +1062,9 @@ final class Kernel
             return json_decode($payload, true) ?: [];
         }
         $decoded = base64_decode(substr($payload, 7), true);
-        $appKey = (string)(getenv('APP_KEY') ?: '');
-        if ($decoded === false || strlen($appKey) < 32) {
-            throw new \RuntimeException('API設定を復号できません。APP_KEYを確認してください。');
+        $appKey = $this->applicationKey();
+        if ($decoded === false) {
+            throw new \RuntimeException('API設定を復号できません。');
         }
         $nonce = substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $plain = sodium_crypto_secretbox_open(substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $nonce, sodium_crypto_generichash($appKey, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES));
@@ -961,29 +1074,111 @@ final class Kernel
         return json_decode($plain, true, 512, JSON_THROW_ON_ERROR);
     }
 
-    private function httpJson(string $url): array
+    private function applicationKey(): string
+    {
+        $environmentKey = (string)(getenv('APP_KEY') ?: '');
+        if (strlen($environmentKey) >= 32) {
+            return $environmentKey;
+        }
+        $dir = dirname(__DIR__, 2) . '/storage/config';
+        $path = $dir . '/app.key';
+        if (is_file($path)) {
+            $saved = trim((string)file_get_contents($path));
+            if (strlen($saved) >= 32) {
+                return $saved;
+            }
+        }
+        if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
+            throw new \RuntimeException('API暗号化キーの保存フォルダを作成できません。');
+        }
+        $generated = base64_encode(random_bytes(48));
+        if (file_put_contents($path, $generated, LOCK_EX) === false) {
+            throw new \RuntimeException('API暗号化キーを保存できません。');
+        }
+        @chmod($path, 0600);
+        return $generated;
+    }
+
+    private function httpJson(string $url, string $service = 'API'): array
     {
         $data = json_decode($this->httpGet($url, 10_000_000), true);
         if (!is_array($data)) {
-            throw new \RuntimeException('APIレスポンスがJSONではありません。');
+            throw new \RuntimeException($service . 'からJSON以外の応答が返されました。API情報と、提供元でAPIが有効になっているか確認してください。');
         }
         return $data;
     }
 
     private function httpGet(string $url, int $maxBytes): string
     {
-        $this->assertPublicUrl($url);
-        $context = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 0, 'ignore_errors' => true, 'header' => "User-Agent: XPostPlus/1.0\r\nAccept: application/json, application/xml, text/xml, text/html\r\n"], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        $handle = @fopen($url, 'rb', false, $context);
-        if (!$handle) {
-            throw new \RuntimeException('外部URLへ接続できません。');
+        for ($redirects = 0; $redirects <= 3; $redirects++) {
+            $this->assertPublicUrl($url);
+            $context = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 0, 'ignore_errors' => true, 'header' => "User-Agent: XPostPlus/1.0\r\nAccept: application/json, application/xml, text/xml, text/html\r\n"], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+            $handle = @fopen($url, 'rb', false, $context);
+            if (!$handle) {
+                throw new \RuntimeException('外部URLへ接続できません。');
+            }
+            $meta = stream_get_meta_data($handle);
+            $headers = (array)($meta['wrapper_data'] ?? []);
+            $status = $this->httpStatus($headers);
+            $location = $this->httpLocation($headers);
+            if (in_array($status, [301, 302, 303, 307, 308], true) && $location !== '') {
+                fclose($handle);
+                if ($redirects === 3) {
+                    throw new \RuntimeException('外部URLの転送回数が多すぎます。');
+                }
+                $url = $this->redirectUrl($url, $location);
+                continue;
+            }
+            $body = stream_get_contents($handle, $maxBytes + 1);
+            fclose($handle);
+            if ($body === false || strlen($body) > $maxBytes) {
+                throw new \RuntimeException('取得データが大きすぎます。');
+            }
+            if ($status >= 400) {
+                throw new \RuntimeException('外部サービスがHTTP ' . $status . 'エラーを返しました。API情報と利用状態を確認してください。');
+            }
+            return $body;
         }
-        $body = stream_get_contents($handle, $maxBytes + 1);
-        fclose($handle);
-        if ($body === false || strlen($body) > $maxBytes) {
-            throw new \RuntimeException('取得データが大きすぎます。');
+        throw new \RuntimeException('外部URLを取得できません。');
+    }
+
+    private function httpStatus(array $headers): int
+    {
+        $status = 0;
+        foreach ($headers as $header) {
+            if (preg_match('~^HTTP/\S+\s+(\d{3})~i', (string)$header, $match)) {
+                $status = (int)$match[1];
+            }
         }
-        return $body;
+        return $status;
+    }
+
+    private function httpLocation(array $headers): string
+    {
+        $location = '';
+        foreach ($headers as $header) {
+            if (stripos((string)$header, 'Location:') === 0) {
+                $location = trim(substr((string)$header, 9));
+            }
+        }
+        return $location;
+    }
+
+    private function redirectUrl(string $currentUrl, string $location): string
+    {
+        if (preg_match('~^https?://~i', $location)) {
+            return $location;
+        }
+        $parts = parse_url($currentUrl);
+        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            throw new \RuntimeException('外部URLの転送先が不正です。');
+        }
+        $origin = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        if (str_starts_with($location, '/')) {
+            return $origin . $location;
+        }
+        $path = (string)($parts['path'] ?? '/');
+        return $origin . rtrim(str_replace('\\', '/', dirname($path)), '/') . '/' . $location;
     }
 
     private function assertPublicUrl(string $url): void
@@ -1152,14 +1347,12 @@ final class Kernel
     private function loginPage(): void
     {
         $error = $this->pullFlash('error');
-        $first = (int)$this->pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
         $errorHtml = $error !== '' ? '<div class="notice error">' . $this->e($error) . '</div>' : '';
-        $notice = $first ? '<div class="notice">初期ID：<strong>admin</strong><br>初期パスワード：<strong>password</strong></div>' : '';
         $fields = '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>';
         $heading = '管理画面へログインしてください。';
         $button = 'ログイン';
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->asset('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>' . $heading . '</p>' . $errorHtml
-            . $notice . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
+            . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
             . '<button class="primary login-button" type="submit">' . $button . '</button></form></section></main></body></html>';
     }
 
@@ -1275,11 +1468,11 @@ final class Kernel
         return '<a class="guide-card" href="' . $this->url($path) . '"><h2>' . $this->e($title) . '</h2><p>' . $this->e($description) . '</p><span>開く →</span></a>';
     }
 
-    private function dashboardGroup(string $title, string $description, string $postPath, string $templatePath): string
+    private function dashboardGroup(string $title, string $description, string $postPath, string $secondaryPath, ?string $secondaryLabel = null): string
     {
         return '<article class="dashboard-source-card"><div class="dashboard-source-title"><span>' . $this->e($title) . '</span><p>' . $this->e($description) . '</p></div>'
             . '<div class="dashboard-source-actions"><a class="dashboard-primary-action" href="' . $this->url($postPath) . '">' . $this->e($title) . '投稿を開く</a>'
-            . '<a class="dashboard-secondary-action" href="' . $this->url($templatePath) . '">' . $this->e($title) . 'テンプレート</a></div></article>';
+            . '<a class="dashboard-secondary-action" href="' . $this->url($secondaryPath) . '">' . $this->e($secondaryLabel ?? $title . 'テンプレート') . '</a></div></article>';
     }
 
     private function layout(string $title, string $path, string $content): void
@@ -1287,6 +1480,7 @@ final class Kernel
         $groups = [
             'API' => [
                 '/api-posts' => 'API投稿',
+                '/api-settings' => 'API設定',
                 '/api-templates' => 'APIテンプレート',
             ],
             'RSS' => [
@@ -1303,7 +1497,10 @@ final class Kernel
         foreach ($groups as $group => $items) {
             $nav .= '<div class="nav-group"><span class="nav-heading">' . $group . '</span>';
             foreach ($items as $url => $label) {
-                $nav .= '<a class="' . ($url === $path ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
+                $isActive = $url === $path
+                    || ($url === '/api-settings' && str_starts_with($path, '/api-settings/'))
+                    || ($url === '/api-templates' && str_starts_with($path, '/api-templates/'));
+                $nav .= '<a class="' . ($isActive ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
             }
             $nav .= '</div>';
         }
