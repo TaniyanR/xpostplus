@@ -606,12 +606,16 @@ final class Kernel
             throw new \RuntimeException(strtoupper($service) . 'のAPI設定がありません。');
         }
         if ($service === 'fanza') {
-            $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query([
+            $params = [
                 'api_id' => $credentials['api_id'], 'affiliate_id' => $credentials['affiliate_id'],
                 'site' => 'FANZA', 'service' => 'digital', 'floor' => 'videoa',
-                'hits' => min(100, $hits), 'sort' => 'date', 'keyword' => $keyword, 'output' => 'json',
-            ]);
-            $data = $this->httpJson($url);
+                'hits' => min(100, $hits), 'sort' => 'date', 'output' => 'json',
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query($params);
+            $data = $this->httpJson($url, 'FANZA');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
                 throw new \RuntimeException('FANZA APIがエラーを返しました。');
             }
@@ -629,12 +633,16 @@ final class Kernel
             ], $rows);
         }
         if ($service === 'duga') {
-            $url = 'https://affapi.duga.jp/search?' . http_build_query([
+            $params = [
                 'version' => '1.2', 'appid' => $credentials['appid'], 'agentid' => $credentials['agentid'],
-                'bannerid' => $credentials['bannerid'], 'format' => 'json', 'keyword' => $keyword,
+                'bannerid' => $credentials['bannerid'], 'format' => 'json',
                 'hits' => min(100, $hits), 'adult' => 1, 'sort' => 'new',
-            ]);
-            $data = $this->httpJson($url);
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://affapi.duga.jp/search?' . http_build_query($params);
+            $data = $this->httpJson($url, 'DUGA');
             $rows = $data['items']['item'] ?? $data['items'] ?? [];
             $rows = $this->normalizeRows($rows, 'productid');
             return array_map(function (array $row): array {
@@ -654,11 +662,15 @@ final class Kernel
             }, $rows);
         }
         if ($service === 'sokumiru') {
-            $url = 'https://sokmil-ad.com/api/v1/Item?' . http_build_query([
+            $params = [
                 'affiliate_id' => $credentials['affiliate_id'], 'api_key' => $credentials['api_key'],
-                'output' => 'json', 'hits' => min(100, $hits), 'sort' => 'date', 'category' => 'av', 'keyword' => $keyword,
-            ]);
-            $data = $this->httpJson($url);
+                'output' => 'json', 'hits' => min(100, $hits), 'sort' => 'date', 'category' => 'av',
+            ];
+            if ($keyword !== '') {
+                $params['keyword'] = $keyword;
+            }
+            $url = 'https://sokmil-ad.com/api/v1/Item?' . http_build_query($params);
+            $data = $this->httpJson($url, 'SOKUMIRU');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
                 throw new \RuntimeException('SOKUMIRU APIがエラーを返しました。');
             }
@@ -1087,29 +1099,86 @@ final class Kernel
         return $generated;
     }
 
-    private function httpJson(string $url): array
+    private function httpJson(string $url, string $service = 'API'): array
     {
         $data = json_decode($this->httpGet($url, 10_000_000), true);
         if (!is_array($data)) {
-            throw new \RuntimeException('APIレスポンスがJSONではありません。');
+            throw new \RuntimeException($service . 'からJSON以外の応答が返されました。API情報と、提供元でAPIが有効になっているか確認してください。');
         }
         return $data;
     }
 
     private function httpGet(string $url, int $maxBytes): string
     {
-        $this->assertPublicUrl($url);
-        $context = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 0, 'ignore_errors' => true, 'header' => "User-Agent: XPostPlus/1.0\r\nAccept: application/json, application/xml, text/xml, text/html\r\n"], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        $handle = @fopen($url, 'rb', false, $context);
-        if (!$handle) {
-            throw new \RuntimeException('外部URLへ接続できません。');
+        for ($redirects = 0; $redirects <= 3; $redirects++) {
+            $this->assertPublicUrl($url);
+            $context = stream_context_create(['http' => ['timeout' => 20, 'follow_location' => 0, 'ignore_errors' => true, 'header' => "User-Agent: XPostPlus/1.0\r\nAccept: application/json, application/xml, text/xml, text/html\r\n"], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
+            $handle = @fopen($url, 'rb', false, $context);
+            if (!$handle) {
+                throw new \RuntimeException('外部URLへ接続できません。');
+            }
+            $meta = stream_get_meta_data($handle);
+            $headers = (array)($meta['wrapper_data'] ?? []);
+            $status = $this->httpStatus($headers);
+            $location = $this->httpLocation($headers);
+            if (in_array($status, [301, 302, 303, 307, 308], true) && $location !== '') {
+                fclose($handle);
+                if ($redirects === 3) {
+                    throw new \RuntimeException('外部URLの転送回数が多すぎます。');
+                }
+                $url = $this->redirectUrl($url, $location);
+                continue;
+            }
+            $body = stream_get_contents($handle, $maxBytes + 1);
+            fclose($handle);
+            if ($body === false || strlen($body) > $maxBytes) {
+                throw new \RuntimeException('取得データが大きすぎます。');
+            }
+            if ($status >= 400) {
+                throw new \RuntimeException('外部サービスがHTTP ' . $status . 'エラーを返しました。API情報と利用状態を確認してください。');
+            }
+            return $body;
         }
-        $body = stream_get_contents($handle, $maxBytes + 1);
-        fclose($handle);
-        if ($body === false || strlen($body) > $maxBytes) {
-            throw new \RuntimeException('取得データが大きすぎます。');
+        throw new \RuntimeException('外部URLを取得できません。');
+    }
+
+    private function httpStatus(array $headers): int
+    {
+        $status = 0;
+        foreach ($headers as $header) {
+            if (preg_match('~^HTTP/\S+\s+(\d{3})~i', (string)$header, $match)) {
+                $status = (int)$match[1];
+            }
         }
-        return $body;
+        return $status;
+    }
+
+    private function httpLocation(array $headers): string
+    {
+        $location = '';
+        foreach ($headers as $header) {
+            if (stripos((string)$header, 'Location:') === 0) {
+                $location = trim(substr((string)$header, 9));
+            }
+        }
+        return $location;
+    }
+
+    private function redirectUrl(string $currentUrl, string $location): string
+    {
+        if (preg_match('~^https?://~i', $location)) {
+            return $location;
+        }
+        $parts = parse_url($currentUrl);
+        if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+            throw new \RuntimeException('外部URLの転送先が不正です。');
+        }
+        $origin = $parts['scheme'] . '://' . $parts['host'] . (isset($parts['port']) ? ':' . $parts['port'] : '');
+        if (str_starts_with($location, '/')) {
+            return $origin . $location;
+        }
+        $path = (string)($parts['path'] ?? '/');
+        return $origin . rtrim(str_replace('\\', '/', dirname($path)), '/') . '/' . $location;
     }
 
     private function assertPublicUrl(string $url): void
