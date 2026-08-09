@@ -86,6 +86,12 @@ header{height:64px;background:#fff;border-bottom:1px solid #dcdcde;display:flex;
 .section-title{display:flex;align-items:flex-start;gap:12px;margin-bottom:20px}
 .section-title>span{display:grid;place-items:center;flex:0 0 34px;height:34px;border-radius:50%;background:#2271b1;color:#fff;font-weight:800}
 .section-title h2{margin:0 0 4px}.section-title p{margin:0;color:#646970}
+.post-fetch-step,.post-materials{margin:28px 0}
+.post-fetch-step>.section-title,.post-materials>.section-title{padding:20px 22px;background:#fff;border:1px solid #dcdcde;border-radius:12px}
+.hashtag-options{margin:18px 0;padding:16px;border:1px solid #c3c4c7;border-radius:8px;background:#f6f7f7}
+.hashtag-options legend{padding:0 6px;font-weight:700}
+.hashtag-options .source-options{margin:12px 0 0}
+.hashtag-options .source-options label{background:#fff;min-width:110px}
 .feed-choice-list{max-height:330px;overflow:auto;padding-right:4px}
 .feed-choice{align-items:flex-start!important;padding:14px;border:1px solid #dcdcde;border-radius:8px;background:#fff;cursor:pointer}
 .feed-choice:hover{border-color:#2271b1;background:#f6fbff}
