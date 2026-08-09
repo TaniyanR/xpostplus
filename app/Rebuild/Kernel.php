@@ -84,12 +84,12 @@ final class Kernel
             match ($path) {
                 '/settings/api' => $this->saveApiSettings(),
                 '/settings/api-test' => $this->testApiSettings(),
-                '/settings/database' => $this->saveDatabaseSettings('/settings', '/settings'),
-                '/settings/profile' => $this->saveProfile(),
+                '/settings/email' => $this->saveEmail(),
+                '/settings/password' => $this->saveSettingsPassword(),
                 '/rss-feeds/save' => $this->saveRssFeed(),
                 '/rss-feeds/delete' => $this->deleteRssFeed(),
-                '/rss-settings/fetch' => $this->fetchRssItems(),
-                '/api-settings/fetch' => $this->fetchApiItems(),
+                '/rss-settings/fetch', '/posts/fetch-rss' => $this->fetchRssItems(),
+                '/api-settings/fetch', '/posts/fetch-api' => $this->fetchApiItems(),
                 '/templates/save' => $this->saveTemplate(),
                 '/templates/delete' => $this->deleteTemplate(),
                 '/posts/generate' => $this->generatePost(),
@@ -230,11 +230,11 @@ final class Kernel
     {
         return '<section class="page-head dashboard-head"><h1>作業を選択</h1><p>API・RSSで素材を取得し、投稿管理で投稿文を作成します。</p></section>'
             . '<section class="dashboard-source-grid">'
-            . $this->dashboardGroup('API設定', 'API情報を設定して商品を取得', '/api-settings', '/api-templates', 'APIテンプレート')
-            . $this->dashboardGroup('RSS設定', 'RSSを登録して記事を取得', '/rss-settings', '/rss-templates', 'RSSテンプレート')
+            . $this->dashboardGroup('API設定', 'FANZA・DUGA・SOKUMIRUの認証情報を管理', '/api-settings', '/api-templates', 'APIテンプレート')
+            . $this->dashboardGroup('RSS設定', '記事取得に使用するRSSを登録・管理', '/rss-settings', '/rss-templates', 'RSSテンプレート')
             . '</section>'
             . '<section class="dashboard-management">'
-            . $this->guideCard('投稿管理', '取得した素材から投稿を作成し、コピー・編集・削除を行います。', '/posts')
+            . $this->guideCard('投稿管理', 'API・RSSの記事取得から投稿作成、コピー、編集、削除まで行います。', '/posts')
             . $this->guideCard('設定', 'DBとログイン情報を設定します。', '/settings')
             . '</section>';
     }
@@ -247,18 +247,11 @@ final class Kernel
             $rows .= '<tr><td>' . $this->e($feed['name']) . '</td><td class="url-cell">' . $this->e($feed['feed_url']) . '</td><td>'
                 . '<form method="post" action="' . $this->url('/rss-feeds/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$feed['id'] . '"><button class="danger">削除</button></form></td></tr>';
         }
-        $feedOptions = '';
-        foreach ($feeds as $feed) {
-            $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
-            $feedOptions .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
-        }
         return $this->flashHtml()
-            . '<section class="page-head"><h1>RSS設定</h1><p>RSSの登録と記事取得を行います。投稿作成は「投稿管理」で行います。</p></section>'
+            . '<section class="page-head"><h1>RSS設定</h1><p>記事取得に使用するRSSを登録・削除します。記事取得と投稿作成は「投稿管理」で行います。</p></section>'
             . '<section class="rss-tools-grid"><article class="panel rss-register-panel"><div class="section-title"><span>1</span><div><h2>RSS登録</h2><p>取得したいサイトのRSSを登録します。</p></div></div><form method="post" action="' . $this->url('/rss-feeds/save') . '">' . $this->csrfField()
             . '<label>RSS名<input name="name" required maxlength="190" placeholder="例：サイト名"></label><label>RSS URL<input name="feed_url" type="url" required maxlength="1000" placeholder="https://example.com/feed/"></label><button class="primary">RSSを登録</button></form></article>'
-            . '<article class="panel rss-fetch-panel"><div class="section-title"><span>2</span><div><h2>RSS取得</h2><p>記事を取得するRSSを選択します。</p></div></div><form method="post" action="' . $this->url('/rss-settings/fetch') . '">' . $this->csrfField()
-            . '<div class="check-list feed-choice-list">' . ($feedOptions ?: '<div class="empty compact-empty">先に左のフォームからRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから記事を取得</button></div></form></article></section>'
-            . '<section class="panel registered-feeds"><div class="section-title"><span>3</span><div><h2>登録済みRSS</h2><p>現在登録されている取得元です。</p></div></div><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></section>';
+            . '<article class="panel registered-feeds"><div class="section-title"><span>2</span><div><h2>登録済みRSS</h2><p>現在登録されている取得元です。</p></div></div><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></article></section>';
     }
 
     private function videoPage(): string
@@ -317,12 +310,18 @@ final class Kernel
         }
 
         $count = count($templates);
+        $defaultBody = $type === 'api'
+            ? '{title}' . "\n\n" . '{affiliate_link}' . "\n" . '{hashtags}'
+            : '{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}';
         $addButton = $count < 3
-            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
+            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $defaultBody . '</textarea></label><button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
-        $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> URL　<code>{hashtags}</code> ハッシュタグ';
-        if ($type === 'rss') {
+        if ($type === 'api') {
+            $shortcodes = '<code>{title}</code> タイトル　<code>{sample_movie}</code> サンプル動画URL　<code>{package_image}</code> パッケージ画像URL<br>'
+                . '<code>{affiliate_link}</code> アフィリエイトリンク　<code>{hashtags}</code> ハッシュタグ（タグ）';
+        } else {
+            $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> 記事URL　<code>{hashtags}</code> ハッシュタグ';
             $shortcodes .= '<br><code>{image}</code> 代表画像URL　<code>{image_url}</code> 代表画像URL　<code>{image_urls}</code> 取得画像URL一覧';
         }
 
@@ -338,7 +337,8 @@ final class Kernel
         $materials = '<section class="post-materials"><h2>取得済み素材から投稿を作成</h2><p>API商品またはRSS記事を選び、テンプレートから投稿文を作成します。</p>'
             . $this->itemList('api', $this->items('api'))
             . $this->itemList('rss', $this->items('rss')) . '</section>';
-        $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>素材からの投稿作成、コピー、編集、削除をここで行います。</p></section>' . $materials;
+        $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>API・RSSの記事取得から、投稿作成、コピー、編集、削除までをここで行います。</p></section>'
+            . $this->postAcquisitionPanels() . $materials;
         $stmt = $this->pdo->prepare('SELECT p.*, t.name template_name FROM xpp_posts p LEFT JOIN xpp_templates t ON t.id=p.template_id WHERE p.status=? ORDER BY p.id DESC');
         $stmt->execute([$status]);
         $posts = $stmt->fetchAll();
@@ -367,18 +367,42 @@ final class Kernel
             . '<form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択した投稿を削除しますか？\')">' . $this->csrfField() . '<button class="danger">選択した投稿を削除</button></form><section class="post-list">' . $rows . '</section>';
     }
 
+    private function postAcquisitionPanels(): string
+    {
+        $statuses = $this->apiStatuses();
+        $apiChoices = '';
+        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
+            $status = $statuses[$service] ?? '未設定';
+            $apiChoices .= '<label><input type="checkbox" name="services[]" value="' . $service . '"' . ($status === '未設定' ? ' disabled' : '') . '> ' . $label . '<small>' . $this->e($status) . '</small></label>';
+        }
+
+        $feeds = $this->pdo->query('SELECT * FROM xpp_rss_feeds WHERE enabled=1 ORDER BY id DESC')->fetchAll();
+        $feedChoices = '';
+        foreach ($feeds as $feed) {
+            $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
+            $feedChoices .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
+        }
+
+        return '<section class="rss-tools-grid post-fetch-grid">'
+            . '<article class="panel"><h2>APIから商品を取得</h2><p>取得元とキーワードを指定します。</p><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
+            . '<div class="source-options">' . $apiChoices . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label><button class="primary">選択したAPIから取得</button></form></article>'
+            . '<article class="panel"><h2>RSSから記事を取得</h2><p>取得するRSSを選択します。</p><form method="post" action="' . $this->url('/posts/fetch-rss') . '">' . $this->csrfField()
+            . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから取得</button></div></form></article></section>';
+    }
+
     private function settings(): string
     {
-        $db = $this->databaseConfig();
-        $userStmt = $this->pdo->prepare('SELECT name,email FROM users WHERE id=?');
+        $userStmt = $this->pdo->prepare('SELECT email FROM users WHERE id=?');
         $userStmt->execute([(int)$_SESSION['user_id']]);
-        $user = $userStmt->fetch() ?: ['name' => '', 'email' => ''];
-        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DBとログイン情報を管理します。各サイトのAPI情報は左メニューの「API設定」から設定できます。</p></section>'
-            . '<section class="panel"><h2>MariaDB設定</h2><p>保存前に接続テストを行います。パスワードは変更する場合だけ入力してください。</p><form method="post" action="' . $this->url('/settings/database') . '">' . $this->csrfField()
-            . '<div class="form-grid"><label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label></div><label>DBパスワード<input name="password" type="password" placeholder="保存済み（変更する場合のみ入力）"></label><button class="primary">接続テストして保存</button></form></section>'
-            . '<section class="panel password-panel"><h2>ログイン情報</h2><form method="post" action="' . $this->url('/settings/profile') . '">' . $this->csrfField()
-            . '<label>ユーザー名<input name="name" value="' . $this->e($user['name']) . '" required maxlength="100"></label><label>メールアドレス<input name="email" type="email" value="' . $this->e($user['email']) . '" required maxlength="190"></label><button class="primary">ログイン情報を保存</button></form></section>'
-            . $this->passwordPage();
+        $email = (string)($userStmt->fetchColumn() ?: '');
+        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>ログインに使用するメールアドレスとパスワードを変更します。</p></section>'
+            . '<section class="settings-grid"><article class="panel"><h2>メールアドレス変更</h2><form method="post" action="' . $this->url('/settings/email') . '">' . $this->csrfField()
+            . '<label>メールアドレス<input name="email" type="email" value="' . $this->e($email) . '" required maxlength="190"></label><button class="primary">メールアドレスを変更</button></form></article>'
+            . '<article class="panel"><h2>パスワード変更</h2><form method="post" action="' . $this->url('/settings/password') . '">' . $this->csrfField()
+            . '<label>現在のパスワード<input name="current_password" type="password" autocomplete="current-password" required></label>'
+            . '<label>新しいパスワード<input name="password" type="password" minlength="12" autocomplete="new-password" required></label>'
+            . '<label>新しいパスワード（確認）<input name="password_confirmation" type="password" minlength="12" autocomplete="new-password" required></label>'
+            . '<button class="primary">パスワードを変更</button></form></article></section>';
     }
 
     private function apiSettingsPage(string $service): string
@@ -415,21 +439,14 @@ final class Kernel
 
     private function apiSettingsOverview(): string
     {
-        $statuses = $this->apiStatuses();
-        $checks = '';
         $cards = '';
         foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
-            $status = $statuses[$service] ?? '未設定';
-            $checks .= '<label><input type="checkbox" name="services[]" value="' . $service . '"' . ($status === '未設定' ? ' disabled' : '') . '> ' . $label . '<small>' . $this->e($status) . '</small></label>';
             $cards .= '<article class="panel api-overview-card"><h2>' . $label . '</h2><p>API認証情報と専用テンプレートを管理します。</p><div class="button-row left">'
                 . '<a class="primary" href="' . $this->url('/api-settings/' . $service) . '">' . $label . '設定</a>'
                 . '<a class="secondary" href="' . $this->url('/api-templates/' . $service) . '">' . $label . 'テンプレート</a></div></article>';
         }
-        return $this->flashHtml() . '<section class="page-head"><h1>API設定</h1><p>各サイトのAPI情報を設定し、商品素材を取得します。投稿作成は「投稿管理」で行います。</p></section>'
-            . '<section class="settings-grid">' . $cards . '</section>'
-            . '<section class="panel"><h2>商品素材を取得</h2><p>取得元とキーワードを指定してください。</p><form method="post" action="' . $this->url('/api-settings/fetch') . '">' . $this->csrfField()
-            . '<div class="source-options">' . $checks . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label>'
-            . '<div class="button-row left"><button class="primary" type="submit">選択したAPIから取得</button><a class="secondary" href="' . $this->url('/posts') . '">取得済み素材を投稿管理で見る</a></div></form></section>';
+        return $this->flashHtml() . '<section class="page-head"><h1>API設定</h1><p>各サイトのAPI認証情報と専用テンプレートを管理します。商品取得は「投稿管理」で行います。</p></section>'
+            . '<section class="settings-grid">' . $cards . '</section>';
     }
 
     private function apiTemplatesOverview(): string
@@ -444,20 +461,41 @@ final class Kernel
         return '<section class="page-head"><h1>APIテンプレート</h1><p>APIサイトごとに専用テンプレートを最大3件まで登録できます。</p></section><section class="settings-grid">' . $cards . '</section>';
     }
 
-    private function saveProfile(): never
+    private function saveEmail(): never
     {
-        $name = trim((string)($_POST['name'] ?? ''));
         $email = trim((string)($_POST['email'] ?? ''));
-        if ($name === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            $this->fail('ユーザー名とメールアドレスを正しく入力してください。', '/settings');
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $this->fail('メールアドレスを正しく入力してください。', '/settings');
         }
         try {
-            $this->pdo->prepare('UPDATE users SET name=?,email=?,updated_at=? WHERE id=?')->execute([$name, $email, $this->now(), (int)$_SESSION['user_id']]);
+            $this->pdo->prepare('UPDATE users SET email=?,updated_at=? WHERE id=?')->execute([$email, $this->now(), (int)$_SESSION['user_id']]);
         } catch (\PDOException) {
             $this->fail('そのメールアドレスは既に使用されています。', '/settings');
         }
-        $_SESSION['user_name'] = $name;
-        $this->success('ログイン情報を保存しました。', '/settings');
+        $this->success('メールアドレスを変更しました。', '/settings');
+    }
+
+    private function saveSettingsPassword(): never
+    {
+        $current = (string)($_POST['current_password'] ?? '');
+        $password = (string)($_POST['password'] ?? '');
+        $confirmation = (string)($_POST['password_confirmation'] ?? '');
+        $stmt = $this->pdo->prepare('SELECT password_hash FROM users WHERE id=?');
+        $stmt->execute([(int)$_SESSION['user_id']]);
+        $hash = (string)($stmt->fetchColumn() ?: '');
+        if ($hash === '' || !password_verify($current, $hash)) {
+            $this->fail('現在のパスワードが違います。', '/settings');
+        }
+        if (strlen($password) < 12) {
+            $this->fail('新しいパスワードは12文字以上で入力してください。', '/settings');
+        }
+        if (!hash_equals($password, $confirmation)) {
+            $this->fail('新しいパスワードの確認入力が一致しません。', '/settings');
+        }
+        $this->pdo->prepare('UPDATE users SET password_hash=?,updated_at=? WHERE id=?')
+            ->execute([password_hash($password, PASSWORD_DEFAULT), $this->now(), (int)$_SESSION['user_id']]);
+        session_regenerate_id(true);
+        $this->success('パスワードを変更しました。', '/settings');
     }
 
     private function saveApiSettings(): never
@@ -582,7 +620,7 @@ final class Kernel
     {
         $services = array_values(array_intersect((array)($_POST['services'] ?? []), ['fanza', 'duga', 'sokumiru']));
         if (!$services) {
-            $this->fail('取得対象を選択してください。', '/api-settings');
+            $this->fail('取得対象を選択してください。', '/posts');
         }
         $keyword = trim((string)($_POST['keyword'] ?? ''));
         $count = 0;
@@ -594,9 +632,9 @@ final class Kernel
                 }
             }
         } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/api-settings');
+            $this->fail($e->getMessage(), '/posts');
         }
-        $this->success($count . '件の商品を取得しました。投稿管理から投稿を作成できます。', '/api-settings');
+        $this->success($count . '件の商品を取得しました。', '/posts');
     }
 
     private function requestApi(string $service, string $keyword, int $hits): array
@@ -716,7 +754,7 @@ final class Kernel
     {
         $ids = array_values(array_filter(array_map('intval', (array)($_POST['feed_ids'] ?? []))));
         if (!$ids) {
-            $this->fail('RSSを選択してください。', '/rss-settings');
+            $this->fail('RSSを選択してください。', '/posts');
         }
         $count = 0;
         foreach ($ids as $id) {
@@ -749,7 +787,7 @@ final class Kernel
                 $this->pdo->prepare('UPDATE xpp_rss_feeds SET last_error=? WHERE id=?')->execute([mb_substr($e->getMessage(), 0, 1000), $id]);
             }
         }
-        $this->success($count . '件の記事を取得しました。投稿管理から投稿を作成できます。', '/rss-settings');
+        $this->success($count . '件の記事を取得しました。', '/posts');
     }
 
     private function saveTemplate(): never
@@ -887,27 +925,30 @@ final class Kernel
         $itemStmt = $this->pdo->prepare('SELECT * FROM xpp_source_items WHERE id=?');
         $itemStmt->execute([$itemId]);
         $item = $itemStmt->fetch();
+        if (!$item || !in_array((string)$item['source_type'], ['api', 'rss'], true)) {
+            $this->fail('素材が見つかりません。', '/posts');
+        }
         $tplStmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE id=? AND source_type=? AND (source_type<>\'api\' OR service=?)');
-        $tplStmt->execute([$templateId, $item['source_type'] ?? '', $item['service'] ?? '']);
+        $tplStmt->execute([$templateId, $item['source_type'], $item['service'] ?? '']);
         $template = $tplStmt->fetch();
-        if (!$item || !$template) {
-            $this->fail('素材またはテンプレートが見つかりません。', '/posts');
+        if (!$template) {
+            $this->fail('テンプレートが見つかりません。', '/posts');
         }
-        $mediaStmt = $this->pdo->prepare('SELECT media_url FROM xpp_source_media WHERE source_item_id=? AND media_type=\'image\' ORDER BY sort_order,id');
-        $mediaStmt->execute([$itemId]);
-        $imageUrls = array_values(array_unique(array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url')))));
-        if ($item['image_url'] !== '' && !in_array((string)$item['image_url'], $imageUrls, true)) {
-            array_unshift($imageUrls, (string)$item['image_url']);
+        $imageUrls = array_values(array_filter([(string)$item['image_url']]));
+        if ($item['source_type'] === 'rss') {
+            $mediaStmt = $this->pdo->prepare('SELECT media_url FROM xpp_source_media WHERE source_item_id=? AND media_type=\'image\' ORDER BY sort_order,id');
+            $mediaStmt->execute([$itemId]);
+            $imageUrls = array_values(array_unique([...$imageUrls, ...array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url')))]));
         }
-        $hashtags = $this->hashtags((string)$item['title'], (string)$item['actress']);
-        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_url}' => $item['affiliate_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre']];
+        $apiTags = trim((string)$item['actress'] . ' ' . (string)$item['genre']);
+        $hashtags = $this->hashtags($item['source_type'] === 'api' && $apiTags !== '' ? $apiTags : (string)$item['title'], '');
+        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_link}' => $item['affiliate_url'], '{affiliate_url}' => $item['affiliate_url'], '{package_image}' => $item['image_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie}' => $item['media_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre']];
         $body = strtr((string)$template['body'], $replace);
         $now = $this->now();
         $this->pdo->prepare('INSERT INTO xpp_posts(source_type,source_item_id,template_id,title,body,status,created_at,updated_at) VALUES(?,?,?,?,?,\'draft\',?,?)')
             ->execute([$item['source_type'], $itemId, $templateId, $item['title'], $body, $now, $now]);
         $postId = (int)$this->pdo->lastInsertId();
         $postMedia = array_map(fn(string $url): array => ['image', $url, null], $imageUrls);
-        $postMedia[] = ['video', $item['media_url'], null];
         foreach ($postMedia as $sortOrder => [$type, $url, $local]) {
             if ($url) {
                 $this->pdo->prepare('INSERT INTO xpp_post_media(post_id,media_type,media_url,local_path,sort_order,created_at) VALUES(?,?,?,?,?,?)')->execute([$postId, $type, $url, $local, $sortOrder, $now]);
@@ -966,9 +1007,23 @@ final class Kernel
             foreach ($templates as $template) {
                 $options .= '<option value="' . (int)$template['id'] . '">' . $this->e($template['name']) . '</option>';
             }
+            $links = '<div class="button-row left">';
+            if ($type === 'api' && !empty($item['affiliate_url'])) {
+                $links .= '<a class="secondary" href="' . $this->e((string)$item['affiliate_url']) . '" target="_blank" rel="noopener">アフィリエイトリンク</a>';
+            }
+            if ($type === 'api' && !empty($item['media_url'])) {
+                $links .= '<a class="secondary" href="' . $this->e((string)$item['media_url']) . '" target="_blank" rel="noopener">サンプル動画</a>';
+            }
+            if ($type === 'rss' && !empty($item['source_url'])) {
+                $links .= '<a class="secondary" href="' . $this->e((string)$item['source_url']) . '" target="_blank" rel="noopener">記事を開く</a>';
+            }
+            $links .= '</div>';
+            $apiTags = trim((string)$item['actress'] . ' ' . (string)$item['genre']);
+            $tagLine = $type === 'api' ? '<p class="help">タグ：' . $this->e($this->hashtags($apiTags !== '' ? $apiTags : (string)$item['title'], '')) . '</p>' : '';
             $cards .= '<article class="item-card"><label class="select-box"><input form="source-bulk-delete-' . $type . '" type="checkbox" name="ids[]" value="' . (int)$item['id'] . '"></label>'
                 . ($item['image_url'] ? '<img src="' . $this->e($item['image_url']) . '" loading="lazy" alt="">' : '')
                 . '<div><small>' . $this->e(strtoupper((string)$item['service'])) . '</small><h3>' . $this->e($item['title']) . '</h3><p>' . $this->e(mb_substr((string)$item['description'], 0, 180)) . '</p>'
+                . $tagLine . $links
                 . '<form method="post" action="' . $this->url('/posts/generate') . '">' . $this->csrfField() . '<input type="hidden" name="source_item_id" value="' . (int)$item['id'] . '"><label>テンプレート<select name="template_id" required>' . $options . '</select></label><button class="primary"' . (!$templates ? ' disabled' : '') . '>投稿作成</button></form>'
                 . '<form class="item-delete" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">個別削除</button></form></div></article>';
         }
@@ -1542,11 +1597,11 @@ final class Kernel
     {
         $groups = [
             'API設定' => [
-                '/api-settings' => '各サイト設定・取得',
+                '/api-settings' => '各サイト設定',
                 '/api-templates' => 'APIテンプレート',
             ],
             'RSS設定' => [
-                '/rss-settings' => 'RSS登録・取得',
+                '/rss-settings' => 'RSS登録',
                 '/rss-templates' => 'RSSテンプレート',
             ],
         ];
