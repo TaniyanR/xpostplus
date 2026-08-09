@@ -32,9 +32,11 @@ DB設定は `storage/config/database.json` に保存されます。Webサーバ�
 - API
   - API投稿
   - FANZA設定
+  - FANZAテンプレート
   - DUGA設定
+  - DUGAテンプレート
   - SOKUMIRU設定
-  - APIテンプレート
+  - SOKUMIRUテンプレート
 - RSS
   - RSS投稿
   - RSSテンプレート
@@ -53,7 +55,7 @@ APIメニューの各設定画面へ次の情報を保存してから接続テ�
 - DUGA: アプリケーションID、代理店ID、バナーID
 - SOKUMIRU: API KEY、アフィリエイトID
 
-各APIはキーワード検索、最大100件取得、取得素材の全選択・一括削除・個別削除、専用テンプレートによる投稿作成に対応します。
+各APIはキーワード検索、最大100件取得、取得素材の全選択・一括削除・個別削除に対応します。テンプレートはFANZA・DUGA・SOKUMIRUごとに最大3件まで登録できます。
 
 ## 動画編集
 
@@ -72,6 +74,6 @@ API・RSS・動画で作成した投稿を一か所で管理します。「コ�
 
 ## 開発
 
-- 作業ブランチ: `rebuild/xpostplus-v1`
+- 作業ブランチ: `agent/complete-xpostplus-v1`
 - `main` へ直接コミットしないでください。
 - フレームワークは使用していません。
