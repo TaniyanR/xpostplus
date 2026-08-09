@@ -105,6 +105,9 @@ final class Kernel
         $routes = [
             '/' => ['ダッシュボード', fn () => $this->dashboard()],
             '/api-posts' => ['API投稿', fn () => $this->apiPage()],
+            '/api-settings/fanza' => ['FANZA設定', fn () => $this->apiSettingsPage('fanza')],
+            '/api-settings/duga' => ['DUGA設定', fn () => $this->apiSettingsPage('duga')],
+            '/api-settings/sokumiru' => ['SOKUMIRU設定', fn () => $this->apiSettingsPage('sokumiru')],
             '/api-templates' => ['APIテンプレート', fn () => $this->templatePage('api')],
             '/rss-posts' => ['RSS投稿', fn () => $this->rssPage()],
             '/rss-templates' => ['RSSテンプレート', fn () => $this->templatePage('rss')],
@@ -235,7 +238,7 @@ final class Kernel
             . '<section class="page-head"><h1>API投稿</h1><p>APIから商品を取得し、必要な素材を選んで投稿を作成します。</p></section>'
             . '<section class="panel"><form method="post" action="' . $this->url('/api-posts/fetch') . '">' . $this->csrfField()
             . '<div class="source-options">' . $checks . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label>'
-            . '<div class="button-row left"><button class="primary" type="submit">取得する</button><a class="secondary" href="' . $this->url('/settings') . '">API設定を開く</a></div></form></section>'
+            . '<div class="button-row left"><button class="primary" type="submit">取得する</button><a class="secondary" href="' . $this->url('/api-settings/fanza') . '">FANZA設定</a><a class="secondary" href="' . $this->url('/api-settings/duga') . '">DUGA設定</a><a class="secondary" href="' . $this->url('/api-settings/sokumiru') . '">SOKUMIRU設定</a></div></form></section>'
             . $this->itemList('api', $items);
     }
 
@@ -351,33 +354,46 @@ final class Kernel
 
     private function settings(): string
     {
-        $cards = '';
-        $fields = [
-            'fanza' => ['FANZA', ['api_id' => 'API ID', 'affiliate_id' => 'アフィリエイトID']],
-            'duga' => ['DUGA', ['appid' => 'アプリケーションID', 'agentid' => '代理店ID', 'bannerid' => 'バナーID']],
-            'sokumiru' => ['SOKUMIRU', ['api_key' => 'API KEY', 'affiliate_id' => 'アフィリエイトID']],
-        ];
-        foreach ($fields as $service => [$label, $inputs]) {
-            $saved = $this->apiCredentials($service);
-            $form = '';
-            foreach ($inputs as $key => $caption) {
-                $type = $key === 'endpoint' ? 'url' : 'password';
-                $placeholder = isset($saved[$key]) && $saved[$key] !== '' ? '保存済み（変更する場合のみ入力）' : '';
-                $form .= '<label>' . $caption . '<input type="' . $type . '" name="credentials[' . $key . ']" placeholder="' . $this->e($placeholder) . '"></label>';
-            }
-            $cards .= '<article class="panel"><h2>' . $label . '</h2><form method="post" action="' . $this->url('/settings/api') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '">' . $form . '<label class="inline-check"><input type="checkbox" name="enabled" value="1" checked> 有効</label><button class="primary">保存</button></form>'
-                . '<form method="post" action="' . $this->url('/settings/api-test') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '"><button class="secondary">接続テスト</button></form></article>';
-        }
         $db = $this->databaseConfig();
         $userStmt = $this->pdo->prepare('SELECT name,email FROM users WHERE id=?');
         $userStmt->execute([(int)$_SESSION['user_id']]);
         $user = $userStmt->fetch() ?: ['name' => '', 'email' => ''];
-        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DB・API・ログイン情報を管理します。</p></section><section class="settings-grid">' . $cards . '</section>'
+        return $this->flashHtml() . '<section class="page-head"><h1>設定</h1><p>DBとログイン情報を管理します。各動画サイトの情報は左メニューの「API」から設定できます。</p></section>'
             . '<section class="panel"><h2>MariaDB設定</h2><p>保存前に接続テストを行います。パスワードは変更する場合だけ入力してください。</p><form method="post" action="' . $this->url('/settings/database') . '">' . $this->csrfField()
             . '<div class="form-grid"><label>DB名<input name="database" value="' . $this->e($db['database']) . '" required></label><label>DBユーザー名<input name="username" value="' . $this->e($db['username']) . '" required></label></div><label>DBパスワード<input name="password" type="password" placeholder="保存済み（変更する場合のみ入力）"></label><button class="primary">接続テストして保存</button></form></section>'
             . '<section class="panel password-panel"><h2>ログイン情報</h2><form method="post" action="' . $this->url('/settings/profile') . '">' . $this->csrfField()
             . '<label>ユーザー名<input name="name" value="' . $this->e($user['name']) . '" required maxlength="100"></label><label>メールアドレス<input name="email" type="email" value="' . $this->e($user['email']) . '" required maxlength="190"></label><button class="primary">ログイン情報を保存</button></form></section>'
             . $this->passwordPage();
+    }
+
+    private function apiSettingsPage(string $service): string
+    {
+        $definitions = [
+            'fanza' => ['FANZA設定', 'FANZAの商品情報を取得するための認証情報を設定します。', ['api_id' => 'API ID', 'affiliate_id' => 'アフィリエイトID']],
+            'duga' => ['DUGA設定', 'DUGAの商品情報を取得するための認証情報を設定します。', ['appid' => 'アプリケーションID', 'agentid' => '代理店ID', 'bannerid' => 'バナーID']],
+            'sokumiru' => ['SOKUMIRU設定', 'SOKUMIRUの商品情報を取得するための認証情報を設定します。', ['api_key' => 'API KEY', 'affiliate_id' => 'アフィリエイトID']],
+        ];
+        if (!isset($definitions[$service])) {
+            $this->notFound();
+        }
+        [$title, $description, $inputs] = $definitions[$service];
+        $saved = $this->apiCredentials($service);
+        $statusStmt = $this->pdo->prepare('SELECT enabled,test_status,tested_at,test_message FROM xpp_api_settings WHERE service=?');
+        $statusStmt->execute([$service]);
+        $status = $statusStmt->fetch() ?: [];
+        $fields = '';
+        foreach ($inputs as $key => $caption) {
+            $placeholder = isset($saved[$key]) && $saved[$key] !== '' ? '保存済み（変更する場合のみ入力）' : '';
+            $fields .= '<label>' . $caption . '<input type="password" name="credentials[' . $key . ']" placeholder="' . $this->e($placeholder) . '" autocomplete="off"></label>';
+        }
+        $checked = !isset($status['enabled']) || (int)$status['enabled'] === 1 ? ' checked' : '';
+        $testLabel = empty($status['tested_at']) ? '未実施' : (($status['test_status'] ?? '') === 'success' ? '接続成功' : '接続エラー');
+        $testDetail = !empty($status['tested_at']) ? '<p class="help">最終テスト：' . $this->e((string)$status['tested_at']) . '／' . $this->e($testLabel) . '</p>' : '<p class="help">接続テストはまだ行われていません。</p>';
+        return $this->flashHtml() . '<section class="page-head"><h1>' . $this->e($title) . '</h1><p>' . $this->e($description) . '</p></section>'
+            . '<section class="panel api-settings-panel"><h2>認証情報</h2>' . $testDetail
+            . '<form method="post" action="' . $this->url('/settings/api') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '">' . $fields
+            . '<label class="inline-check"><input type="checkbox" name="enabled" value="1"' . $checked . '> このAPIを有効にする</label><button class="primary">保存する</button></form>'
+            . '<hr><h2>接続確認</h2><p>保存した情報を使って商品を1件取得できるか確認します。</p><form method="post" action="' . $this->url('/settings/api-test') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '"><button class="secondary">接続テストを実行</button></form></section>';
     }
 
     private function saveProfile(): never
@@ -399,13 +415,14 @@ final class Kernel
     private function saveApiSettings(): never
     {
         $service = (string)($_POST['service'] ?? '');
+        $redirect = $this->apiSettingsPath($service);
         $required = [
             'fanza' => ['api_id', 'affiliate_id'],
             'duga' => ['appid', 'agentid', 'bannerid'],
             'sokumiru' => ['api_key', 'affiliate_id'],
         ];
         if (!isset($required[$service])) {
-            $this->fail('未対応のAPIです。', '/settings');
+            $this->fail('未対応のAPIです。', '/api-posts');
         }
         $current = $this->apiCredentials($service);
         $input = is_array($_POST['credentials'] ?? null) ? $_POST['credentials'] : [];
@@ -415,13 +432,13 @@ final class Kernel
                 $current[$key] = $value;
             }
             if (empty($current[$key])) {
-                $this->fail('必須項目をすべて入力してください。', '/settings');
+                $this->fail('必須項目をすべて入力してください。', $redirect);
             }
         }
         try {
             $payload = $this->encryptCredentials($current);
         } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/settings');
+            $this->fail($e->getMessage(), $redirect);
         }
         $enabled = isset($_POST['enabled']) ? 1 : 0;
         $now = $this->now();
@@ -433,7 +450,7 @@ final class Kernel
             $this->pdo->prepare('INSERT INTO xpp_api_settings(service,credentials,enabled,updated_at) VALUES(?,?,?,?)')->execute([$service, $payload, $enabled, $now]);
         }
         $this->log('api_settings_saved', 'api', null, $service);
-        $this->success('API設定を保存しました。', '/settings');
+        $this->success('API設定を保存しました。続けて接続テストを行ってください。', $redirect);
     }
 
     private function databaseConfig(): array
@@ -494,6 +511,7 @@ final class Kernel
     private function testApiSettings(): never
     {
         $service = (string)($_POST['service'] ?? '');
+        $redirect = $this->apiSettingsPath($service);
         try {
             $items = $this->requestApi($service, '', 1);
             $message = '接続に成功しました。取得件数：' . count($items);
@@ -504,7 +522,12 @@ final class Kernel
         }
         $this->pdo->prepare('UPDATE xpp_api_settings SET tested_at=?,test_status=?,test_message=? WHERE service=?')
             ->execute([$this->now(), $status, mb_substr($message, 0, 500), $service]);
-        $status === 'success' ? $this->success($message, '/settings') : $this->fail($message, '/settings');
+        $status === 'success' ? $this->success($message, $redirect) : $this->fail($message, $redirect);
+    }
+
+    private function apiSettingsPath(string $service): string
+    {
+        return in_array($service, ['fanza', 'duga', 'sokumiru'], true) ? '/api-settings/' . $service : '/api-posts';
     }
 
     private function fetchApiItems(): never
@@ -934,10 +957,7 @@ final class Kernel
         if (!extension_loaded('sodium')) {
             throw new \RuntimeException('API暗号化にはPHP Sodium拡張が必要です。');
         }
-        $appKey = (string)(getenv('APP_KEY') ?: '');
-        if (strlen($appKey) < 32) {
-            throw new \RuntimeException('APP_KEYに32文字以上のランダム文字列を設定してください。');
-        }
+        $appKey = $this->applicationKey();
         $key = sodium_crypto_generichash($appKey, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES);
         $nonce = random_bytes(SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         return 'enc:v1:' . base64_encode($nonce . sodium_crypto_secretbox(json_encode($data, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR), $nonce, $key));
@@ -949,9 +969,9 @@ final class Kernel
             return json_decode($payload, true) ?: [];
         }
         $decoded = base64_decode(substr($payload, 7), true);
-        $appKey = (string)(getenv('APP_KEY') ?: '');
-        if ($decoded === false || strlen($appKey) < 32) {
-            throw new \RuntimeException('API設定を復号できません。APP_KEYを確認してください。');
+        $appKey = $this->applicationKey();
+        if ($decoded === false) {
+            throw new \RuntimeException('API設定を復号できません。');
         }
         $nonce = substr($decoded, 0, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES);
         $plain = sodium_crypto_secretbox_open(substr($decoded, SODIUM_CRYPTO_SECRETBOX_NONCEBYTES), $nonce, sodium_crypto_generichash($appKey, '', SODIUM_CRYPTO_SECRETBOX_KEYBYTES));
@@ -959,6 +979,31 @@ final class Kernel
             throw new \RuntimeException('API設定を復号できません。');
         }
         return json_decode($plain, true, 512, JSON_THROW_ON_ERROR);
+    }
+
+    private function applicationKey(): string
+    {
+        $environmentKey = (string)(getenv('APP_KEY') ?: '');
+        if (strlen($environmentKey) >= 32) {
+            return $environmentKey;
+        }
+        $dir = dirname(__DIR__, 2) . '/storage/config';
+        $path = $dir . '/app.key';
+        if (is_file($path)) {
+            $saved = trim((string)file_get_contents($path));
+            if (strlen($saved) >= 32) {
+                return $saved;
+            }
+        }
+        if (!is_dir($dir) && !mkdir($dir, 0750, true) && !is_dir($dir)) {
+            throw new \RuntimeException('API暗号化キーの保存フォルダを作成できません。');
+        }
+        $generated = base64_encode(random_bytes(48));
+        if (file_put_contents($path, $generated, LOCK_EX) === false) {
+            throw new \RuntimeException('API暗号化キーを保存できません。');
+        }
+        @chmod($path, 0600);
+        return $generated;
     }
 
     private function httpJson(string $url): array
@@ -1152,14 +1197,12 @@ final class Kernel
     private function loginPage(): void
     {
         $error = $this->pullFlash('error');
-        $first = (int)$this->pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() === 0;
         $errorHtml = $error !== '' ? '<div class="notice error">' . $this->e($error) . '</div>' : '';
-        $notice = $first ? '<div class="notice">初期ID：<strong>admin</strong><br>初期パスワード：<strong>password</strong></div>' : '';
         $fields = '<label>ユーザー名またはメールアドレス<input name="login" type="text" autocomplete="username" required autofocus></label><label>パスワード<input name="password" type="password" autocomplete="current-password" required></label>';
         $heading = '管理画面へログインしてください。';
         $button = 'ログイン';
         echo '<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>ログイン | XPostPlus</title><link rel="stylesheet" href="' . $this->asset('/assets/css/rebuild.css') . '"></head><body class="login-body"><main class="login-shell"><section class="login-card"><h1>XPostPlus</h1><p>' . $heading . '</p>' . $errorHtml
-            . $notice . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
+            . '<form method="post" action="' . $this->url('/login') . '"><input type="hidden" name="csrf_token" value="' . $this->e($this->csrfToken()) . '">' . $fields
             . '<button class="primary login-button" type="submit">' . $button . '</button></form></section></main></body></html>';
     }
 
@@ -1287,6 +1330,9 @@ final class Kernel
         $groups = [
             'API' => [
                 '/api-posts' => 'API投稿',
+                '/api-settings/fanza' => 'FANZA設定',
+                '/api-settings/duga' => 'DUGA設定',
+                '/api-settings/sokumiru' => 'SOKUMIRU設定',
                 '/api-templates' => 'APIテンプレート',
             ],
             'RSS' => [
