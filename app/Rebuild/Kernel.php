@@ -105,10 +105,14 @@ final class Kernel
         $routes = [
             '/' => ['ダッシュボード', fn () => $this->dashboard()],
             '/api-posts' => ['API投稿', fn () => $this->apiPage()],
+            '/api-settings' => ['API設定', fn () => $this->apiSettingsOverview()],
             '/api-settings/fanza' => ['FANZA設定', fn () => $this->apiSettingsPage('fanza')],
             '/api-settings/duga' => ['DUGA設定', fn () => $this->apiSettingsPage('duga')],
             '/api-settings/sokumiru' => ['SOKUMIRU設定', fn () => $this->apiSettingsPage('sokumiru')],
-            '/api-templates' => ['APIテンプレート', fn () => $this->templatePage('api')],
+            '/api-templates' => ['APIテンプレート', fn () => $this->apiTemplatesOverview()],
+            '/api-templates/fanza' => ['FANZAテンプレート', fn () => $this->templatePage('api', 'fanza')],
+            '/api-templates/duga' => ['DUGAテンプレート', fn () => $this->templatePage('api', 'duga')],
+            '/api-templates/sokumiru' => ['SOKUMIRUテンプレート', fn () => $this->templatePage('api', 'sokumiru')],
             '/rss-posts' => ['RSS投稿', fn () => $this->rssPage()],
             '/rss-templates' => ['RSSテンプレート', fn () => $this->templatePage('rss')],
             '/videos' => ['動画投稿', fn () => $this->videoPage()],
@@ -169,7 +173,7 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_items (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), external_id VARCHAR(190), feed_id INTEGER, title VARCHAR(500) NOT NULL, description {$text}, source_url VARCHAR(1000), affiliate_url VARCHAR(1000), image_url VARCHAR(1000), media_url VARCHAR(1000), actress VARCHAR(500), genre VARCHAR(500), published_at DATETIME, raw_json {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_media (id {$id}, source_item_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000) NOT NULL, local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_video_jobs (id {$id}, source_item_id INTEGER, input_type VARCHAR(20) NOT NULL, input_url VARCHAR(1000) NOT NULL, source_path VARCHAR(1000), output_path VARCHAR(1000), status VARCHAR(30) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, start_seconds DECIMAL(12,3), end_seconds DECIMAL(12,3), aspect_ratio VARCHAR(10) NOT NULL DEFAULT 'original', quality VARCHAR(20) NOT NULL DEFAULT 'standard', muted INTEGER NOT NULL DEFAULT 0, source_size BIGINT, output_size BIGINT, error_message {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_posts (id {$id}, source_type VARCHAR(20) NOT NULL, source_item_id INTEGER, template_id INTEGER, title VARCHAR(500) NOT NULL, body {$text} NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft', copied_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_post_media (id {$id}, post_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000), local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_activity_logs (id {$id}, user_id INTEGER, action VARCHAR(100) NOT NULL, target_type VARCHAR(50), target_id INTEGER, message {$text}, created_at DATETIME NOT NULL)");
@@ -180,7 +184,7 @@ final class Kernel
         $this->ensureColumns('xpp_source_items', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'external_id' => 'VARCHAR(190) NULL', 'feed_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'description' => 'LONGTEXT NULL', 'source_url' => 'VARCHAR(1000) NULL', 'affiliate_url' => 'VARCHAR(1000) NULL', 'image_url' => 'VARCHAR(1000) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'actress' => 'VARCHAR(500) NULL', 'genre' => 'VARCHAR(500) NULL', 'published_at' => 'DATETIME NULL', 'raw_json' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_source_media', ['source_item_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_video_jobs', ['source_item_id' => 'INTEGER NULL', 'input_type' => 'VARCHAR(20) NULL', 'input_url' => 'VARCHAR(1000) NULL', 'source_path' => 'VARCHAR(1000) NULL', 'output_path' => 'VARCHAR(1000) NULL', 'status' => "VARCHAR(30) NOT NULL DEFAULT 'pending'", 'progress' => 'INTEGER NOT NULL DEFAULT 0', 'start_seconds' => 'DECIMAL(12,3) NULL', 'end_seconds' => 'DECIMAL(12,3) NULL', 'aspect_ratio' => "VARCHAR(10) NOT NULL DEFAULT 'original'", 'quality' => "VARCHAR(20) NOT NULL DEFAULT 'standard'", 'muted' => 'INTEGER NOT NULL DEFAULT 0', 'source_size' => 'BIGINT NULL', 'output_size' => 'BIGINT NULL', 'error_message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
-        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
+        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_posts', ['source_type' => 'VARCHAR(20) NULL', 'source_item_id' => 'INTEGER NULL', 'template_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'body' => 'LONGTEXT NULL', 'status' => "VARCHAR(20) NOT NULL DEFAULT 'draft'", 'copied_at' => 'DATETIME NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_post_media', ['post_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_activity_logs', ['user_id' => 'INTEGER NULL', 'action' => 'VARCHAR(100) NULL', 'target_type' => 'VARCHAR(50) NULL', 'target_id' => 'INTEGER NULL', 'message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL']);
@@ -191,6 +195,7 @@ final class Kernel
         $this->createIndex('idx_xpp_media_item', 'xpp_source_media', 'source_item_id, sort_order');
         $this->createIndex('idx_xpp_video_status', 'xpp_video_jobs', 'status, created_at');
         $this->createIndex('idx_xpp_templates_type', 'xpp_templates', 'source_type, sort_order');
+        $this->createIndex('idx_xpp_templates_service', 'xpp_templates', 'source_type, service, sort_order');
         $this->createIndex('idx_xpp_posts_status', 'xpp_posts', 'status, created_at');
         $this->createIndex('idx_xpp_post_media_post', 'xpp_post_media', 'post_id, sort_order');
         $migration = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_migrations WHERE version=1');
@@ -199,14 +204,24 @@ final class Kernel
             $this->pdo->prepare('INSERT INTO xpp_migrations(version,applied_at) VALUES(1,?)')->execute([$this->now()]);
         }
 
-        foreach (['api' => '標準API投稿', 'rss' => '標準RSS投稿', 'video' => '標準動画投稿'] as $type => $name) {
-            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type = ?');
-            $stmt->execute([$type]);
+        $this->pdo->exec("UPDATE xpp_templates SET service='fanza' WHERE source_type='api' AND service IS NULL");
+        $defaults = [
+            ['api', 'fanza', '標準FANZA投稿'],
+            ['api', 'duga', '標準DUGA投稿'],
+            ['api', 'sokumiru', '標準SOKUMIRU投稿'],
+            ['rss', null, '標準RSS投稿'],
+            ['video', null, '標準動画投稿'],
+        ];
+        foreach ($defaults as [$type, $service, $name]) {
+            $stmt = $service === null
+                ? $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service IS NULL')
+                : $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service=?');
+            $stmt->execute($service === null ? [$type] : [$type, $service]);
             if ((int)$stmt->fetchColumn() === 0) {
                 $body = "{title}\n\n{url}\n{hashtags}";
                 $now = date('Y-m-d H:i:s');
-                $this->pdo->prepare('INSERT INTO xpp_templates (source_type, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)')
-                    ->execute([$type, $name, $body, $now, $now]);
+                $this->pdo->prepare('INSERT INTO xpp_templates (source_type, service, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
+                    ->execute([$type, $service, $name, $body, $now, $now]);
             }
         }
     }
@@ -215,7 +230,7 @@ final class Kernel
     {
         return '<section class="page-head dashboard-head"><h1>作業を選択</h1><p>素材の種類ごとに「投稿」と「テンプレート」をまとめています。</p></section>'
             . '<section class="dashboard-source-grid">'
-            . $this->dashboardGroup('API', 'FANZA・DUGA・SOKUMIRUの商品を取得', '/api-posts', '/api-templates')
+            . $this->dashboardGroup('API', 'FANZA・DUGA・SOKUMIRUの商品を取得', '/api-posts', '/api-settings', 'API設定・テンプレート')
             . $this->dashboardGroup('RSS', '登録したRSSから記事を取得', '/rss-posts', '/rss-templates')
             . $this->dashboardGroup('動画', '動画を取得・編集して素材を作成', '/videos', '/video-templates')
             . '</section>'
@@ -252,15 +267,16 @@ final class Kernel
         }
         $feedOptions = '';
         foreach ($feeds as $feed) {
-            $feedOptions .= '<label><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked> ' . $this->e($feed['name']) . '</label>';
+            $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
+            $feedOptions .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
         }
         return $this->flashHtml()
             . '<section class="page-head"><h1>RSS投稿</h1><p>RSSを登録・取得し、必要な記事から投稿を作成します。</p></section>'
-            . '<section class="work-grid"><article class="panel"><h2>RSS登録</h2><form method="post" action="' . $this->url('/rss-feeds/save') . '">' . $this->csrfField()
-            . '<label>RSS名<input name="name" required maxlength="190"></label><label>RSS URL<input name="feed_url" type="url" required maxlength="1000"></label><button class="primary">登録</button></form></article>'
-            . '<article class="panel"><h2>RSS取得</h2><form method="post" action="' . $this->url('/rss-posts/fetch') . '">' . $this->csrfField()
-            . '<div class="check-list">' . ($feedOptions ?: '<p>先にRSSを登録してください。</p>') . '</div><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSを取得</button></form></article></section>'
-            . '<section class="panel"><h2>登録済みRSS</h2><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></section>'
+            . '<section class="rss-tools-grid"><article class="panel rss-register-panel"><div class="section-title"><span>1</span><div><h2>RSS登録</h2><p>取得したいサイトのRSSを登録します。</p></div></div><form method="post" action="' . $this->url('/rss-feeds/save') . '">' . $this->csrfField()
+            . '<label>RSS名<input name="name" required maxlength="190" placeholder="例：サイト名"></label><label>RSS URL<input name="feed_url" type="url" required maxlength="1000" placeholder="https://example.com/feed/"></label><button class="primary">RSSを登録</button></form></article>'
+            . '<article class="panel rss-fetch-panel"><div class="section-title"><span>2</span><div><h2>RSS取得</h2><p>記事を取得するRSSを選択します。</p></div></div><form method="post" action="' . $this->url('/rss-posts/fetch') . '">' . $this->csrfField()
+            . '<div class="check-list feed-choice-list">' . ($feedOptions ?: '<div class="empty compact-empty">先に左のフォームからRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから記事を取得</button></div></form></article></section>'
+            . '<section class="panel registered-feeds"><div class="section-title"><span>3</span><div><h2>登録済みRSS</h2><p>現在登録されている取得元です。</p></div></div><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></section>'
             . $this->itemList('rss', $this->items('rss'));
     }
 
@@ -287,32 +303,41 @@ final class Kernel
             . $this->itemList('video', $this->items('video'));
     }
 
-    private function templatePage(string $type): string
+    private function templatePage(string $type, ?string $service = null): string
     {
         $labels = [
-            'api' => ['APIテンプレート', 'API投稿で使用するテンプレートを管理します。'],
+            'api:fanza' => ['FANZAテンプレート', 'FANZAの商品から投稿を作成するときに使用します。'],
+            'api:duga' => ['DUGAテンプレート', 'DUGAの商品から投稿を作成するときに使用します。'],
+            'api:sokumiru' => ['SOKUMIRUテンプレート', 'SOKUMIRUの商品から投稿を作成するときに使用します。'],
             'rss' => ['RSSテンプレート', 'RSS投稿で使用するテンプレートを管理します。'],
             'video' => ['動画テンプレート', '動画投稿で使用するテンプレートを管理します。'],
         ];
-        [$title, $description] = $labels[$type];
+        $labelKey = $type === 'api' ? 'api:' . $service : $type;
+        if (!isset($labels[$labelKey])) {
+            $this->notFound();
+        }
+        [$title, $description] = $labels[$labelKey];
 
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type = ? ORDER BY sort_order, id LIMIT 3');
-        $stmt->execute([$type]);
+        $stmt = $service === null
+            ? $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? AND service IS NULL ORDER BY sort_order,id LIMIT 3')
+            : $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? AND service=? ORDER BY sort_order,id LIMIT 3');
+        $stmt->execute($service === null ? [$type] : [$type, $service]);
         $templates = $stmt->fetchAll();
+        $serviceField = '<input type="hidden" name="template_service" value="' . $this->e((string)$service) . '">';
 
         $cards = '';
         foreach ($templates as $index => $template) {
             $cards .= '<article class="template-card">'
                 . '<div class="template-card-head"><div><span class="template-number">テンプレート' . ($index + 1) . '</span><h2>' . $this->e($template['name']) . '</h2></div>'
-                . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '"><button class="danger">削除</button></form></div>'
-                . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">'
+                . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<button class="danger">削除</button></form></div>'
+                . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField
                 . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label><button class="primary">保存</button></form>'
                 . '</article>';
         }
 
         $count = count($templates);
         $addButton = $count < 3
-            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
+            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
         return $this->flashHtml() . '<section class="page-head page-head-actions"><div><h1>' . $title . '</h1><p>' . $description . '</p></div>'
@@ -394,6 +419,29 @@ final class Kernel
             . '<form method="post" action="' . $this->url('/settings/api') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '">' . $fields
             . '<label class="inline-check"><input type="checkbox" name="enabled" value="1"' . $checked . '> このAPIを有効にする</label><button class="primary">保存する</button></form>'
             . '<hr><h2>接続確認</h2><p>保存した情報を使って商品を1件取得できるか確認します。</p><form method="post" action="' . $this->url('/settings/api-test') . '">' . $this->csrfField() . '<input type="hidden" name="service" value="' . $service . '"><button class="secondary">接続テストを実行</button></form></section>';
+    }
+
+    private function apiSettingsOverview(): string
+    {
+        $cards = '';
+        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
+            $cards .= '<article class="panel api-overview-card"><h2>' . $label . '</h2><p>API認証情報と専用テンプレートを管理します。</p><div class="button-row left">'
+                . '<a class="primary" href="' . $this->url('/api-settings/' . $service) . '">' . $label . '設定</a>'
+                . '<a class="secondary" href="' . $this->url('/api-templates/' . $service) . '">' . $label . 'テンプレート</a></div></article>';
+        }
+        return '<section class="page-head"><h1>API設定</h1><p>動画サイトごとにAPI情報と投稿テンプレートを設定します。</p></section><section class="settings-grid">' . $cards . '</section>';
+    }
+
+    private function apiTemplatesOverview(): string
+    {
+        $cards = '';
+        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
+            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=\'api\' AND service=?');
+            $stmt->execute([$service]);
+            $count = (int)$stmt->fetchColumn();
+            $cards .= '<a class="guide-card api-template-overview-card" href="' . $this->url('/api-templates/' . $service) . '"><h2>' . $label . 'テンプレート</h2><p>' . $label . '商品専用です。他サイトの商品には使用されません。</p><span>登録数 ' . $count . ' / 3件　管理する →</span></a>';
+        }
+        return '<section class="page-head"><h1>APIテンプレート</h1><p>動画サイトごとに専用テンプレートを最大3件まで登録できます。</p></section><section class="settings-grid">' . $cards . '</section>';
     }
 
     private function saveProfile(): never
@@ -697,30 +745,50 @@ final class Kernel
         if (!in_array($type, ['api', 'rss', 'video'], true)) {
             $this->notFound();
         }
+        $service = $type === 'api' && in_array($_POST['template_service'] ?? '', ['fanza', 'duga', 'sokumiru'], true)
+            ? (string)$_POST['template_service'] : null;
+        if ($type === 'api' && $service === null) {
+            $this->fail('動画サイトを確認できません。', '/api-posts');
+        }
+        $redirect = $this->templatePath($type, $service);
         $id = (int)($_POST['id'] ?? 0);
         $name = trim((string)($_POST['name'] ?? ''));
         $body = trim((string)($_POST['body'] ?? ''));
         if ($name === '' || $body === '') {
-            $this->fail('名前と本文を入力してください。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+            $this->fail('名前と本文を入力してください。', $redirect);
         }
         if ($id > 0) {
-            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,updated_at=? WHERE id=? AND source_type=?')->execute([$name, $body, $this->now(), $id, $type]);
+            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,updated_at=? WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
+                ->execute([$name, $body, $this->now(), $id, $type, $service, $service]);
         } else {
-            $stmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=?');
-            $stmt->execute([$type]);
+            $stmt = $service === null
+                ? $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service IS NULL')
+                : $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service=?');
+            $stmt->execute($service === null ? [$type] : [$type, $service]);
             if ((int)$stmt->fetchColumn() >= 3) {
-                $this->fail('テンプレートは最大3件です。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+                $this->fail('テンプレートは最大3件です。', $redirect);
             }
-            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,name,body,sort_order,created_at,updated_at) VALUES(?,?,?,99,?,?)')->execute([$type, $name, $body, $this->now(), $this->now()]);
+            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,service,name,body,sort_order,created_at,updated_at) VALUES(?,?,?,?,99,?,?)')->execute([$type, $service, $name, $body, $this->now(), $this->now()]);
         }
-        $this->success('テンプレートを保存しました。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+        $this->success('テンプレートを保存しました。', $redirect);
     }
 
     private function deleteTemplate(): never
     {
         $type = (string)($_POST['source_type'] ?? '');
-        $this->pdo->prepare('DELETE FROM xpp_templates WHERE id=? AND source_type=?')->execute([(int)($_POST['id'] ?? 0), $type]);
-        $this->success('テンプレートを削除しました。', '/' . ($type === 'video' ? 'video' : $type) . '-templates');
+        $service = $type === 'api' && in_array($_POST['template_service'] ?? '', ['fanza', 'duga', 'sokumiru'], true)
+            ? (string)$_POST['template_service'] : null;
+        $this->pdo->prepare('DELETE FROM xpp_templates WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
+            ->execute([(int)($_POST['id'] ?? 0), $type, $service, $service]);
+        $this->success('テンプレートを削除しました。', $this->templatePath($type, $service));
+    }
+
+    private function templatePath(string $type, ?string $service): string
+    {
+        if ($type === 'api' && in_array($service, ['fanza', 'duga', 'sokumiru'], true)) {
+            return '/api-templates/' . $service;
+        }
+        return $type === 'video' ? '/video-templates' : '/rss-templates';
     }
 
     private function analyzeVideo(): never
@@ -806,8 +874,8 @@ final class Kernel
         $itemStmt = $this->pdo->prepare('SELECT * FROM xpp_source_items WHERE id=?');
         $itemStmt->execute([$itemId]);
         $item = $itemStmt->fetch();
-        $tplStmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE id=? AND source_type=?');
-        $tplStmt->execute([$templateId, $item['source_type'] ?? '']);
+        $tplStmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE id=? AND source_type=? AND (source_type<>\'api\' OR service=?)');
+        $tplStmt->execute([$templateId, $item['source_type'] ?? '', $item['service'] ?? '']);
         $template = $tplStmt->fetch();
         if (!$item || !$template) {
             $this->fail('素材またはテンプレートが見つかりません。', '/posts');
@@ -860,11 +928,19 @@ final class Kernel
 
     private function itemList(string $type, array $items): string
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? ORDER BY sort_order,id LIMIT 3');
+        $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? ORDER BY service,sort_order,id');
         $stmt->execute([$type]);
-        $templates = $stmt->fetchAll();
+        $templateGroups = [];
+        foreach ($stmt->fetchAll() as $template) {
+            $key = $type === 'api' ? (string)($template['service'] ?? '') : 'common';
+            if (count($templateGroups[$key] ?? []) < 3) {
+                $templateGroups[$key][] = $template;
+            }
+        }
         $cards = '';
         foreach ($items as $item) {
+            $templateKey = $type === 'api' ? (string)$item['service'] : 'common';
+            $templates = $templateGroups[$templateKey] ?? [];
             $options = '';
             foreach ($templates as $template) {
                 $options .= '<option value="' . (int)$template['id'] . '">' . $this->e($template['name']) . '</option>';
@@ -876,7 +952,12 @@ final class Kernel
                 . '<form class="item-delete" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">個別削除</button></form></div></article>';
         }
         $actions = $items ? '<form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="button-row left"><button type="button" class="secondary" data-select-all=".item-card input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した素材を一括削除</button></div></form>' : '';
-        return '<section class="panel item-section"><h2>取得済み素材</h2>' . $actions . '<div class="item-grid">' . ($cards ?: '<div class="empty">まだ素材はありません。</div>') . '</div></section>';
+        $heading = $type === 'rss' ? '取得済み記事' : '取得済み素材';
+        $emptyText = $type === 'rss' ? 'まだ記事を取得していません。' : 'まだ素材はありません。';
+        $titleHtml = $type === 'rss'
+            ? '<div class="section-title"><span>4</span><div><h2>' . $heading . '</h2><p>投稿に使用する記事を選んで投稿を作成します。</p></div></div>'
+            : '<h2>' . $heading . '</h2>';
+        return '<section class="panel item-section">' . $titleHtml . $actions . '<div class="item-grid">' . ($cards ?: '<div class="empty">' . $emptyText . '</div>') . '</div></section>';
     }
 
     private function deleteSourceItems(): never
@@ -1318,11 +1399,11 @@ final class Kernel
         return '<a class="guide-card" href="' . $this->url($path) . '"><h2>' . $this->e($title) . '</h2><p>' . $this->e($description) . '</p><span>開く →</span></a>';
     }
 
-    private function dashboardGroup(string $title, string $description, string $postPath, string $templatePath): string
+    private function dashboardGroup(string $title, string $description, string $postPath, string $secondaryPath, ?string $secondaryLabel = null): string
     {
         return '<article class="dashboard-source-card"><div class="dashboard-source-title"><span>' . $this->e($title) . '</span><p>' . $this->e($description) . '</p></div>'
             . '<div class="dashboard-source-actions"><a class="dashboard-primary-action" href="' . $this->url($postPath) . '">' . $this->e($title) . '投稿を開く</a>'
-            . '<a class="dashboard-secondary-action" href="' . $this->url($templatePath) . '">' . $this->e($title) . 'テンプレート</a></div></article>';
+            . '<a class="dashboard-secondary-action" href="' . $this->url($secondaryPath) . '">' . $this->e($secondaryLabel ?? $title . 'テンプレート') . '</a></div></article>';
     }
 
     private function layout(string $title, string $path, string $content): void
@@ -1330,9 +1411,7 @@ final class Kernel
         $groups = [
             'API' => [
                 '/api-posts' => 'API投稿',
-                '/api-settings/fanza' => 'FANZA設定',
-                '/api-settings/duga' => 'DUGA設定',
-                '/api-settings/sokumiru' => 'SOKUMIRU設定',
+                '/api-settings' => 'API設定',
                 '/api-templates' => 'APIテンプレート',
             ],
             'RSS' => [
@@ -1349,7 +1428,10 @@ final class Kernel
         foreach ($groups as $group => $items) {
             $nav .= '<div class="nav-group"><span class="nav-heading">' . $group . '</span>';
             foreach ($items as $url => $label) {
-                $nav .= '<a class="' . ($url === $path ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
+                $isActive = $url === $path
+                    || ($url === '/api-settings' && str_starts_with($path, '/api-settings/'))
+                    || ($url === '/api-templates' && str_starts_with($path, '/api-templates/'));
+                $nav .= '<a class="' . ($isActive ? 'active' : '') . '" href="' . $this->url($url) . '">' . $label . '</a>';
             }
             $nav .= '</div>';
         }
