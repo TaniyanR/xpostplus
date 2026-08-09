@@ -130,6 +130,35 @@ textarea{width:100%;padding:11px 12px;border:1px solid #8c8f94;border-radius:6px
 .panel dl{display:grid;grid-template-columns:140px 1fr;gap:8px}
 .api-settings-panel{max-width:760px}
 .api-settings-panel hr{margin:28px 0;border:0;border-top:1px solid #dcdcde}
+.api-source-tabs{margin:18px 0 14px;flex-wrap:wrap}
+.api-current-status{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:18px;padding:12px 14px;border-radius:7px;background:#f0f6fc}
+.api-current-status span{color:#646970;font-size:13px}
+.api-condition-grid{grid-template-columns:repeat(2,minmax(0,1fr));padding-top:4px}
+.list-panel{padding:0;overflow:hidden}
+.list-panel>h2,.list-panel>p,.list-panel>.list-toolbar,.list-panel>form,.list-panel>.empty,.list-panel>.pagination{margin-left:20px;margin-right:20px}
+.list-panel>h2{margin-top:22px;margin-bottom:6px}.list-panel>h2+p{margin-top:0;color:#646970}
+.list-toolbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px;margin-bottom:14px}
+.list-toolbar form,.list-toolbar label{display:flex;align-items:center;gap:8px;margin:0;font-weight:600}
+.list-toolbar select{width:auto;min-width:75px;padding:7px 28px 7px 9px}
+.list-actions{display:flex;gap:9px;flex-wrap:wrap;margin-bottom:14px}
+.wp-list-table{min-width:980px;border-top:1px solid #c3c4c7;border-bottom:1px solid #c3c4c7;background:#fff}
+.wp-list-table th{padding:10px 12px;background:#f6f7f7;color:#2c3338;font-size:13px;font-weight:700;white-space:nowrap}
+.wp-list-table td{padding:12px;vertical-align:middle}
+.wp-list-table tbody tr:nth-child(even){background:#fbfbfc}
+.wp-list-table tbody tr:hover{background:#f0f6fc}
+.check-column{width:38px}.title-column{min-width:300px}.date-column{width:145px;white-space:nowrap}.template-column{min-width:230px}.action-column{width:105px}
+.list-thumbnail{display:block;width:76px;height:76px;object-fit:cover;border-radius:5px;background:#f0f0f1}
+.no-image{display:grid;place-items:center;width:76px;height:76px;border-radius:5px;background:#f0f0f1;color:#646970;font-size:11px;text-align:center}
+.type-badge{display:inline-block;padding:4px 7px;border-radius:4px;background:#e5f3ff;color:#135e96;font-size:12px;font-weight:700}
+.excerpt{max-width:520px;margin:6px 0;color:#646970;font-size:13px;line-height:1.5}
+.title-column>.help{margin:5px 0;font-size:12px}.row-links{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}.row-links a{font-size:12px;color:#2271b1}
+.generate-form{display:grid;gap:7px}.generate-form select{width:100%;padding:8px}.generate-form button{width:100%}
+.action-column form+form{margin-top:8px}.action-column button{width:100%;padding:8px 10px}
+.row-actions{margin-top:7px}.row-actions summary{width:max-content;color:#2271b1;cursor:pointer;font-size:13px}.inline-edit{position:relative;z-index:2;width:min(560px,60vw);margin-top:10px;padding:14px;border:1px solid #c3c4c7;border-radius:7px;background:#fff;box-shadow:0 5px 18px rgba(0,0,0,.12)}
+.inline-edit label{display:grid;gap:5px;margin-bottom:10px}.inline-edit input,.inline-edit textarea{width:100%}
+.pagination{display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:16px 0}
+.page-button,.page-status{display:inline-block;padding:7px 10px;border:1px solid #c3c4c7;border-radius:4px;background:#fff;color:#2271b1;text-decoration:none;font-size:13px}
+.page-button.disabled{color:#a7aaad;background:#f6f7f7}.page-status{color:#2c3338;font-weight:600}
 @media(max-width:900px){
   .app{grid-template-columns:1fr}
   aside{position:fixed;z-index:30;top:0;bottom:0;left:0;width:min(320px,86vw);height:100vh;transform:translateX(-105%);transition:transform .2s ease;box-shadow:4px 0 20px rgba(0,0,0,.25)}
@@ -146,6 +175,7 @@ textarea{width:100%;padding:11px 12px;border:1px solid #8c8f94;border-radius:6px
   .dashboard-management{grid-template-columns:1fr 1fr}
   .settings-grid,.item-grid,.video-grid{grid-template-columns:1fr 1fr}
   .item-card{grid-template-columns:auto 120px 1fr}
+  .api-condition-grid{grid-template-columns:1fr}
 }
 @media(max-width:560px){
   .stat-grid,.work-grid,.dashboard-management{grid-template-columns:1fr}
