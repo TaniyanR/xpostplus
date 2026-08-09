@@ -170,10 +170,10 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_migrations (id {$id}, version INTEGER NOT NULL UNIQUE, applied_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_api_settings (id {$id}, service VARCHAR(30) NOT NULL UNIQUE, credentials {$text} NOT NULL, enabled INTEGER NOT NULL DEFAULT 1, tested_at DATETIME, test_status VARCHAR(20), test_message VARCHAR(500), updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_rss_feeds (id {$id}, name VARCHAR(190) NOT NULL, feed_url VARCHAR(1000) NOT NULL UNIQUE, enabled INTEGER NOT NULL DEFAULT 1, last_fetched_at DATETIME, last_error VARCHAR(1000), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_items (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), external_id VARCHAR(190), feed_id INTEGER, title VARCHAR(500) NOT NULL, description {$text}, source_url VARCHAR(1000), affiliate_url VARCHAR(1000), image_url VARCHAR(1000), media_url VARCHAR(1000), actress VARCHAR(500), genre VARCHAR(500), published_at DATETIME, raw_json {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_items (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), external_id VARCHAR(190), feed_id INTEGER, title VARCHAR(500) NOT NULL, description {$text}, source_url VARCHAR(1000), affiliate_url VARCHAR(1000), image_url VARCHAR(1000), media_url VARCHAR(1000), actress VARCHAR(500), genre VARCHAR(500), series_name VARCHAR(500), maker VARCHAR(500), label VARCHAR(500), published_at DATETIME, raw_json {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_media (id {$id}, source_item_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000) NOT NULL, local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_video_jobs (id {$id}, source_item_id INTEGER, input_type VARCHAR(20) NOT NULL, input_url VARCHAR(1000) NOT NULL, source_path VARCHAR(1000), output_path VARCHAR(1000), status VARCHAR(30) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, start_seconds DECIMAL(12,3), end_seconds DECIMAL(12,3), aspect_ratio VARCHAR(10) NOT NULL DEFAULT 'original', quality VARCHAR(20) NOT NULL DEFAULT 'standard', muted INTEGER NOT NULL DEFAULT 0, source_size BIGINT, output_size BIGINT, error_message {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), name VARCHAR(190) NOT NULL, body {$text} NOT NULL, sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
+        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), name VARCHAR(190) NOT NULL, body {$text} NOT NULL, hashtag_fields VARCHAR(255), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_posts (id {$id}, source_type VARCHAR(20) NOT NULL, source_item_id INTEGER, template_id INTEGER, title VARCHAR(500) NOT NULL, body {$text} NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft', copied_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_post_media (id {$id}, post_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000), local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_activity_logs (id {$id}, user_id INTEGER, action VARCHAR(100) NOT NULL, target_type VARCHAR(50), target_id INTEGER, message {$text}, created_at DATETIME NOT NULL)");
@@ -182,10 +182,10 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS login_attempts (id {$id}, email VARCHAR(190) NOT NULL, ip_address VARCHAR(64) NOT NULL, attempted_at DATETIME NOT NULL)");
         $this->ensureColumns('xpp_api_settings', ['service' => 'VARCHAR(30) NULL', 'credentials' => 'LONGTEXT NULL', 'enabled' => 'INTEGER NOT NULL DEFAULT 1', 'tested_at' => 'DATETIME NULL', 'test_status' => 'VARCHAR(20) NULL', 'test_message' => 'VARCHAR(500) NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_rss_feeds', ['name' => 'VARCHAR(190) NULL', 'feed_url' => 'VARCHAR(1000) NULL', 'enabled' => 'INTEGER NOT NULL DEFAULT 1', 'last_fetched_at' => 'DATETIME NULL', 'last_error' => 'VARCHAR(1000) NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
-        $this->ensureColumns('xpp_source_items', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'external_id' => 'VARCHAR(190) NULL', 'feed_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'description' => 'LONGTEXT NULL', 'source_url' => 'VARCHAR(1000) NULL', 'affiliate_url' => 'VARCHAR(1000) NULL', 'image_url' => 'VARCHAR(1000) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'actress' => 'VARCHAR(500) NULL', 'genre' => 'VARCHAR(500) NULL', 'published_at' => 'DATETIME NULL', 'raw_json' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
+        $this->ensureColumns('xpp_source_items', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'external_id' => 'VARCHAR(190) NULL', 'feed_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'description' => 'LONGTEXT NULL', 'source_url' => 'VARCHAR(1000) NULL', 'affiliate_url' => 'VARCHAR(1000) NULL', 'image_url' => 'VARCHAR(1000) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'actress' => 'VARCHAR(500) NULL', 'genre' => 'VARCHAR(500) NULL', 'series_name' => 'VARCHAR(500) NULL', 'maker' => 'VARCHAR(500) NULL', 'label' => 'VARCHAR(500) NULL', 'published_at' => 'DATETIME NULL', 'raw_json' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_source_media', ['source_item_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_video_jobs', ['source_item_id' => 'INTEGER NULL', 'input_type' => 'VARCHAR(20) NULL', 'input_url' => 'VARCHAR(1000) NULL', 'source_path' => 'VARCHAR(1000) NULL', 'output_path' => 'VARCHAR(1000) NULL', 'status' => "VARCHAR(30) NOT NULL DEFAULT 'pending'", 'progress' => 'INTEGER NOT NULL DEFAULT 0', 'start_seconds' => 'DECIMAL(12,3) NULL', 'end_seconds' => 'DECIMAL(12,3) NULL', 'aspect_ratio' => "VARCHAR(10) NOT NULL DEFAULT 'original'", 'quality' => "VARCHAR(20) NOT NULL DEFAULT 'standard'", 'muted' => 'INTEGER NOT NULL DEFAULT 0', 'source_size' => 'BIGINT NULL', 'output_size' => 'BIGINT NULL', 'error_message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
-        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
+        $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'hashtag_fields' => 'VARCHAR(255) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_posts', ['source_type' => 'VARCHAR(20) NULL', 'source_item_id' => 'INTEGER NULL', 'template_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'body' => 'LONGTEXT NULL', 'status' => "VARCHAR(20) NOT NULL DEFAULT 'draft'", 'copied_at' => 'DATETIME NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_post_media', ['post_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_activity_logs', ['user_id' => 'INTEGER NULL', 'action' => 'VARCHAR(100) NULL', 'target_type' => 'VARCHAR(50) NULL', 'target_id' => 'INTEGER NULL', 'message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL']);
@@ -301,11 +301,12 @@ final class Kernel
 
         $cards = '';
         foreach ($templates as $index => $template) {
+            $hashtagOptions = $type === 'api' ? $this->hashtagOptions((string)($template['hashtag_fields'] ?? '')) : '';
             $cards .= '<article class="template-card">'
                 . '<div class="template-card-head"><div><span class="template-number">テンプレート' . ($index + 1) . '</span><h2>' . $this->e($template['name']) . '</h2></div>'
                 . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<button class="danger">削除</button></form></div>'
                 . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField
-                . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label><button class="primary">保存</button></form>'
+                . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label>' . $hashtagOptions . '<button class="primary">保存</button></form>'
                 . '</article>';
         }
 
@@ -314,15 +315,16 @@ final class Kernel
             ? '{title}' . "\n\n" . '{affiliate_link}' . "\n" . '{hashtags}'
             : '{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}';
         $addButton = $count < 3
-            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $defaultBody . '</textarea></label><button class="primary">登録</button></form></details>'
+            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $defaultBody . '</textarea></label>' . ($type === 'api' ? $this->hashtagOptions('') : '') . '<button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
         if ($type === 'api') {
             $shortcodes = '<code>{title}</code> タイトル　<code>{sample_movie}</code> サンプル動画URL　<code>{package_image}</code> パッケージ画像URL<br>'
-                . '<code>{affiliate_link}</code> アフィリエイトリンク　<code>{hashtags}</code> ハッシュタグ（タグ）';
+                . '<code>{affiliate_link}</code> アフィリエイトリンク　<code>{hashtags}</code> 選択項目のハッシュタグ<br>'
+                . '<code>{actress}</code> 女優　<code>{genre}</code> ジャンル　<code>{series}</code> シリーズ　<code>{maker}</code> メーカー　<code>{label}</code> レーベル';
         } else {
-            $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> 記事URL　<code>{hashtags}</code> ハッシュタグ';
-            $shortcodes .= '<br><code>{image}</code> 代表画像URL　<code>{image_url}</code> 代表画像URL　<code>{image_urls}</code> 取得画像URL一覧';
+            $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> 記事URL　<code>{hashtags}</code> RSS記事タグのハッシュタグ<br>';
+            $shortcodes .= '<code>{tags}</code> RSS記事のタグ一覧　<code>{image_url}</code> 代表画像URL　<code>{image_urls}</code> 取得画像URL一覧';
         }
 
         return $this->flashHtml() . '<section class="page-head page-head-actions"><div><h1>' . $title . '</h1><p>' . $description . '</p></div>'
@@ -334,7 +336,7 @@ final class Kernel
     private function posts(): string
     {
         $status = ($_GET['status'] ?? 'draft') === 'posted' ? 'posted' : 'draft';
-        $materials = '<section class="post-materials"><h2>取得済み素材から投稿を作成</h2><p>API商品またはRSS記事を選び、テンプレートから投稿文を作成します。</p>'
+        $materials = '<section class="post-materials"><div class="section-title"><span>2</span><div><h2>取得済み素材を選ぶ</h2><p>API商品またはRSS記事のテンプレートを選び、投稿文を作成します。</p></div></div>'
             . $this->itemList('api', $this->items('api'))
             . $this->itemList('rss', $this->items('rss')) . '</section>';
         $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>API・RSSの記事取得から、投稿作成、コピー、編集、削除までをここで行います。</p></section>'
@@ -343,7 +345,7 @@ final class Kernel
         $stmt->execute([$status]);
         $posts = $stmt->fetchAll();
         if (!$posts) {
-            return $pageHead . '<h2>作成済み投稿</h2>' . $this->postTabs($status) . '<section class="panel"><div class="empty"><strong>対象の投稿はありません。</strong></div></section>';
+            return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>未投稿と投稿済みを切り替えて確認します。</p></div></div>' . $this->postTabs($status) . '<section class="panel"><div class="empty"><strong>対象の投稿はありません。</strong></div></section>';
         }
         $rows = '';
         foreach ($posts as $post) {
@@ -363,7 +365,7 @@ final class Kernel
                 . '<div class="post-actions"><form class="copy-form" method="post" action="' . $this->url('/posts/copy') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="primary" data-copy-text="' . $this->e($post['body']) . '">' . $copyLabel . '</button></form>'
                 . '<form method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'この投稿を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="danger">削除</button></form></div></article>';
         }
-        return $pageHead . '<h2>作成済み投稿</h2><p>コピーすると自動で投稿済みになります。</p>' . $this->postTabs($status)
+        return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>コピーすると自動で投稿済みになります。</p></div></div>' . $this->postTabs($status)
             . '<form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択した投稿を削除しますか？\')">' . $this->csrfField() . '<button class="danger">選択した投稿を削除</button></form><section class="post-list">' . $rows . '</section>';
     }
 
@@ -383,11 +385,11 @@ final class Kernel
             $feedChoices .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
         }
 
-        return '<section class="rss-tools-grid post-fetch-grid">'
+        return '<section class="post-fetch-step"><div class="section-title"><span>1</span><div><h2>素材を取得</h2><p>API商品またはRSS記事を取得します。</p></div></div><div class="rss-tools-grid post-fetch-grid">'
             . '<article class="panel"><h2>APIから商品を取得</h2><p>取得元とキーワードを指定します。</p><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
             . '<div class="source-options">' . $apiChoices . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label><button class="primary">選択したAPIから取得</button></form></article>'
             . '<article class="panel"><h2>RSSから記事を取得</h2><p>取得するRSSを選択します。</p><form method="post" action="' . $this->url('/posts/fetch-rss') . '">' . $this->csrfField()
-            . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから取得</button></div></form></article></section>';
+            . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから取得</button></div></form></article></div></section>';
     }
 
     private function settings(): string
@@ -666,6 +668,9 @@ final class Kernel
                 'media_url' => (string)($i['sampleMovieURL']['size_720_480'] ?? $i['sampleMovieURL']['size_644_414'] ?? ''),
                 'actress' => $this->names($i['iteminfo']['actress'] ?? []),
                 'genre' => $this->names($i['iteminfo']['genre'] ?? []),
+                'series_name' => $this->names($i['iteminfo']['series'] ?? []),
+                'maker' => $this->names($i['iteminfo']['maker'] ?? []),
+                'label' => $this->names($i['iteminfo']['label'] ?? []),
                 'published_at' => $this->dateValue($i['date'] ?? null), 'raw' => $i,
                 'images' => (array)($i['sampleImageURL']['sample_l']['image'] ?? []),
             ], $rows);
@@ -694,6 +699,9 @@ final class Kernel
                     'image_url' => (string)($i['jacketimage']['large'] ?? $i['posterimage']['large'] ?? ''),
                     'media_url' => (string)($i['samplemovie']['midium']['movie'] ?? ''),
                     'actress' => $this->names($performers), 'genre' => $this->names($categories),
+                    'series_name' => $this->names($i['series'] ?? []),
+                    'maker' => (string)($i['makername'] ?? ''),
+                    'label' => $this->names($i['label'] ?? []),
                     'published_at' => $this->dateValue($i['opendate'] ?? $i['releasedate'] ?? null), 'raw' => $i,
                     'images' => array_values(array_filter((array)($i['thumbnail']['image'] ?? []), 'is_string')),
                 ];
@@ -721,6 +729,9 @@ final class Kernel
                 'media_url' => (string)($i['sampleMovieURL']['url'] ?? ''),
                 'actress' => $this->names($i['iteminfo']['actor'] ?? []),
                 'genre' => $this->names($i['iteminfo']['genre'] ?? []),
+                'series_name' => $this->names($i['iteminfo']['series'] ?? []),
+                'maker' => $this->names($i['iteminfo']['maker'] ?? []),
+                'label' => $this->names($i['iteminfo']['label'] ?? []),
                 'published_at' => $this->dateValue($i['date'] ?? null), 'raw' => $i,
                 'images' => array_values(array_filter((array)($i['sampleImageURL']['image'] ?? []), 'is_string')),
             ], $rows);
@@ -774,10 +785,12 @@ final class Kernel
                 foreach ($entries as $entry) {
                     $link = isset($entry->link['href']) ? (string)$entry->link['href'] : (string)$entry->link;
                     $images = $this->rssImages($entry);
+                    $tags = $this->rssTags($entry);
                     $item = ['external_id' => sha1($link), 'title' => (string)$entry->title,
                         'description' => strip_tags((string)($entry->description ?? $entry->summary ?? $entry->content)),
                         'source_url' => $link, 'affiliate_url' => '', 'image_url' => $images[0] ?? '',
-                        'media_url' => '', 'actress' => '', 'genre' => '', 'published_at' => $this->dateValue((string)($entry->pubDate ?? $entry->published ?? $entry->updated)),
+                        'media_url' => '', 'actress' => '', 'genre' => implode('、', $tags), 'series_name' => '', 'maker' => '', 'label' => '',
+                        'published_at' => $this->dateValue((string)($entry->pubDate ?? $entry->published ?? $entry->updated)),
                         'raw' => json_decode(json_encode($entry), true) ?: [], 'images' => $images];
                     $this->upsertItem('rss', 'rss', $item, $id);
                     $count++;
@@ -805,12 +818,19 @@ final class Kernel
         $id = (int)($_POST['id'] ?? 0);
         $name = trim((string)($_POST['name'] ?? ''));
         $body = trim((string)($_POST['body'] ?? ''));
+        $hashtagFields = $type === 'api'
+            ? array_values(array_intersect((array)($_POST['hashtag_fields'] ?? []), ['actress', 'genre', 'series_name', 'maker', 'label']))
+            : [];
         if ($name === '' || $body === '') {
             $this->fail('名前と本文を入力してください。', $redirect);
         }
+        if ($type === 'api' && !$hashtagFields) {
+            $this->fail('ハッシュタグに使用する項目を1つ以上選択してください。', $redirect);
+        }
+        $hashtagFieldsValue = $type === 'api' ? implode(',', $hashtagFields) : null;
         if ($id > 0) {
-            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,updated_at=? WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
-                ->execute([$name, $body, $this->now(), $id, $type, $service, $service]);
+            $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,hashtag_fields=?,updated_at=? WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
+                ->execute([$name, $body, $hashtagFieldsValue, $this->now(), $id, $type, $service, $service]);
         } else {
             $stmt = $service === null
                 ? $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service IS NULL')
@@ -819,7 +839,7 @@ final class Kernel
             if ((int)$stmt->fetchColumn() >= 3) {
                 $this->fail('テンプレートは最大3件です。', $redirect);
             }
-            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,service,name,body,sort_order,created_at,updated_at) VALUES(?,?,?,?,99,?,?)')->execute([$type, $service, $name, $body, $this->now(), $this->now()]);
+            $this->pdo->prepare('INSERT INTO xpp_templates(source_type,service,name,body,hashtag_fields,sort_order,created_at,updated_at) VALUES(?,?,?,?,?,99,?,?)')->execute([$type, $service, $name, $body, $hashtagFieldsValue, $this->now(), $this->now()]);
         }
         $this->success('テンプレートを保存しました。', $redirect);
     }
@@ -840,6 +860,18 @@ final class Kernel
             return '/api-templates/' . $service;
         }
         return $type === 'video' ? '/video-templates' : '/rss-templates';
+    }
+
+    private function hashtagOptions(string $selected): string
+    {
+        $labels = ['actress' => '女優', 'genre' => 'ジャンル', 'series_name' => 'シリーズ', 'maker' => 'メーカー', 'label' => 'レーベル'];
+        $selectedFields = $selected !== '' ? explode(',', $selected) : array_keys($labels);
+        $options = '';
+        foreach ($labels as $field => $label) {
+            $checked = in_array($field, $selectedFields, true) ? ' checked' : '';
+            $options .= '<label class="inline-check"><input type="checkbox" name="hashtag_fields[]" value="' . $field . '"' . $checked . '> ' . $label . '</label>';
+        }
+        return '<fieldset class="hashtag-options"><legend>ハッシュタグに使用する項目</legend><p class="help">複数選択できます。選択した項目は <code>{hashtags}</code> にまとめて入ります。</p><div class="source-options">' . $options . '</div></fieldset>';
     }
 
     private function analyzeVideo(): never
@@ -940,9 +972,8 @@ final class Kernel
             $mediaStmt->execute([$itemId]);
             $imageUrls = array_values(array_unique([...$imageUrls, ...array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url')))]));
         }
-        $apiTags = trim((string)$item['actress'] . ' ' . (string)$item['genre']);
-        $hashtags = $this->hashtags($item['source_type'] === 'api' && $apiTags !== '' ? $apiTags : (string)$item['title'], '');
-        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_link}' => $item['affiliate_url'], '{affiliate_url}' => $item['affiliate_url'], '{package_image}' => $item['image_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie}' => $item['media_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre']];
+        $hashtags = $this->itemHashtags($item, (string)($template['hashtag_fields'] ?? ''));
+        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_link}' => $item['affiliate_url'], '{affiliate_url}' => $item['affiliate_url'], '{package_image}' => $item['image_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie}' => $item['media_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{tags}' => $item['genre'], '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre'], '{series}' => $item['series_name'], '{maker}' => $item['maker'], '{label}' => $item['label']];
         $body = strtr((string)$template['body'], $replace);
         $now = $this->now();
         $this->pdo->prepare('INSERT INTO xpp_posts(source_type,source_item_id,template_id,title,body,status,created_at,updated_at) VALUES(?,?,?,?,?,\'draft\',?,?)')
@@ -1018,8 +1049,8 @@ final class Kernel
                 $links .= '<a class="secondary" href="' . $this->e((string)$item['source_url']) . '" target="_blank" rel="noopener">記事を開く</a>';
             }
             $links .= '</div>';
-            $apiTags = trim((string)$item['actress'] . ' ' . (string)$item['genre']);
-            $tagLine = $type === 'api' ? '<p class="help">タグ：' . $this->e($this->hashtags($apiTags !== '' ? $apiTags : (string)$item['title'], '')) . '</p>' : '';
+            $tags = $this->itemHashtags($item, '');
+            $tagLine = $tags !== '' ? '<p class="help">タグ：' . $this->e($tags) . '</p>' : '<p class="help">タグ：なし</p>';
             $cards .= '<article class="item-card"><label class="select-box"><input form="source-bulk-delete-' . $type . '" type="checkbox" name="ids[]" value="' . (int)$item['id'] . '"></label>'
                 . ($item['image_url'] ? '<img src="' . $this->e($item['image_url']) . '" loading="lazy" alt="">' : '')
                 . '<div><small>' . $this->e(strtoupper((string)$item['service'])) . '</small><h3>' . $this->e($item['title']) . '</h3><p>' . $this->e(mb_substr((string)$item['description'], 0, 180)) . '</p>'
@@ -1069,11 +1100,11 @@ final class Kernel
         $stmt = $this->pdo->prepare('SELECT id FROM xpp_source_items WHERE source_type=? AND service=? AND external_id=?');
         $stmt->execute([$type, $service, $item['external_id']]);
         $id = (int)($stmt->fetchColumn() ?: 0);
-        $values = [$feedId, $item['title'], $item['description'] ?? '', $item['source_url'] ?? '', $item['affiliate_url'] ?? '', $item['image_url'] ?? '', $item['media_url'] ?? '', $item['actress'] ?? '', $item['genre'] ?? '', $item['published_at'] ?? null, json_encode($item['raw'] ?? [], JSON_UNESCAPED_UNICODE), $this->now()];
+        $values = [$feedId, $item['title'], $item['description'] ?? '', $item['source_url'] ?? '', $item['affiliate_url'] ?? '', $item['image_url'] ?? '', $item['media_url'] ?? '', $item['actress'] ?? '', $item['genre'] ?? '', $item['series_name'] ?? '', $item['maker'] ?? '', $item['label'] ?? '', $item['published_at'] ?? null, json_encode($item['raw'] ?? [], JSON_UNESCAPED_UNICODE), $this->now()];
         if ($id) {
-            $this->pdo->prepare('UPDATE xpp_source_items SET feed_id=?,title=?,description=?,source_url=?,affiliate_url=?,image_url=?,media_url=?,actress=?,genre=?,published_at=?,raw_json=?,updated_at=? WHERE id=?')->execute([...$values, $id]);
+            $this->pdo->prepare('UPDATE xpp_source_items SET feed_id=?,title=?,description=?,source_url=?,affiliate_url=?,image_url=?,media_url=?,actress=?,genre=?,series_name=?,maker=?,label=?,published_at=?,raw_json=?,updated_at=? WHERE id=?')->execute([...$values, $id]);
         } else {
-            $this->pdo->prepare('INSERT INTO xpp_source_items(source_type,service,external_id,feed_id,title,description,source_url,affiliate_url,image_url,media_url,actress,genre,published_at,raw_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            $this->pdo->prepare('INSERT INTO xpp_source_items(source_type,service,external_id,feed_id,title,description,source_url,affiliate_url,image_url,media_url,actress,genre,series_name,maker,label,published_at,raw_json,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                 ->execute([$type, $service, $item['external_id'], ...$values, $this->now()]);
             $id = (int)$this->pdo->lastInsertId();
         }
@@ -1364,6 +1395,28 @@ final class Kernel
         return $images;
     }
 
+    private function rssTags(\SimpleXMLElement $entry): array
+    {
+        $tags = [];
+        $add = static function (mixed $value) use (&$tags): void {
+            $value = trim(html_entity_decode(strip_tags((string)$value), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ($value !== '' && !in_array($value, $tags, true)) {
+                $tags[] = $value;
+            }
+        };
+        foreach ($entry->category as $category) {
+            $term = (string)($category['term'] ?? '');
+            $add($term !== '' ? $term : (string)$category);
+        }
+        $namespaces = $entry->getNamespaces(true);
+        if (isset($namespaces['dc'])) {
+            foreach ($entry->children($namespaces['dc'])->subject as $subject) {
+                $add($subject);
+            }
+        }
+        return $tags;
+    }
+
     private function names(mixed $rows): string
     {
         if (!is_array($rows)) return '';
@@ -1389,11 +1442,32 @@ final class Kernel
         return $time ? date('Y-m-d H:i:s', $time) : null;
     }
 
-    private function hashtags(string $title, string $actress): string
+    private function itemHashtags(array $item, string $fieldList): string
     {
-        preg_match_all('/[\p{L}\p{N}ー]{2,20}/u', $title . ' ' . $actress, $matches);
-        $words = array_slice(array_values(array_unique($matches[0] ?? [])), 0, 6);
-        return implode(' ', array_map(fn($word) => '#' . $word, $words));
+        if (($item['source_type'] ?? '') === 'rss') {
+            return $this->hashtagValues([(string)($item['genre'] ?? '')]);
+        }
+        $allowed = ['actress', 'genre', 'series_name', 'maker', 'label'];
+        $fields = $fieldList !== '' ? array_values(array_intersect(explode(',', $fieldList), $allowed)) : $allowed;
+        $values = [];
+        foreach ($fields as $field) {
+            $values[] = (string)($item[$field] ?? '');
+        }
+        return $this->hashtagValues($values);
+    }
+
+    private function hashtagValues(array $values): string
+    {
+        $tags = [];
+        foreach ($values as $value) {
+            foreach (preg_split('/[、,\r\n]+/u', (string)$value) ?: [] as $tag) {
+                $tag = preg_replace('/[^\p{L}\p{N}_ー]+/u', '', ltrim(trim($tag), '#'));
+                if ($tag !== '' && !in_array($tag, $tags, true)) {
+                    $tags[] = $tag;
+                }
+            }
+        }
+        return implode(' ', array_map(fn(string $tag): string => '#' . $tag, array_slice($tags, 0, 10)));
     }
 
     private function csrfField(): string
