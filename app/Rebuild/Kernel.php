@@ -340,9 +340,14 @@ final class Kernel
             ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}</textarea></label><button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
+        $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> URL　<code>{hashtags}</code> ハッシュタグ';
+        if ($type === 'rss') {
+            $shortcodes .= '<br><code>{image}</code> 代表画像URL　<code>{image_url}</code> 代表画像URL　<code>{image_urls}</code> 取得画像URL一覧';
+        }
+
         return $this->flashHtml() . '<section class="page-head page-head-actions"><div><h1>' . $title . '</h1><p>' . $description . '</p></div>'
             . '<div class="template-count">登録数 <strong>' . $count . ' / 3件</strong></div></section>'
-            . '<section class="panel template-guide"><div><h2>利用できるショートコード</h2><p><code>{title}</code> タイトル　<code>{url}</code> URL　<code>{hashtags}</code> ハッシュタグ</p></div>' . $addButton . '</section>'
+            . '<section class="panel template-guide"><div><h2>利用できるショートコード</h2><p>' . $shortcodes . '</p></div>' . $addButton . '</section>'
             . '<section class="template-grid">' . $cards . '</section>';
     }
 
@@ -735,11 +740,12 @@ final class Kernel
                 $entries = isset($parsed->channel->item) ? $parsed->channel->item : $parsed->entry;
                 foreach ($entries as $entry) {
                     $link = isset($entry->link['href']) ? (string)$entry->link['href'] : (string)$entry->link;
+                    $images = $this->rssImages($entry);
                     $item = ['external_id' => sha1($link), 'title' => (string)$entry->title,
                         'description' => strip_tags((string)($entry->description ?? $entry->summary ?? $entry->content)),
-                        'source_url' => $link, 'affiliate_url' => '', 'image_url' => $this->rssImage($entry),
+                        'source_url' => $link, 'affiliate_url' => '', 'image_url' => $images[0] ?? '',
                         'media_url' => '', 'actress' => '', 'genre' => '', 'published_at' => $this->dateValue((string)($entry->pubDate ?? $entry->published ?? $entry->updated)),
-                        'raw' => json_decode(json_encode($entry), true) ?: [], 'images' => []];
+                        'raw' => json_decode(json_encode($entry), true) ?: [], 'images' => $images];
                     $this->upsertItem('rss', 'rss', $item, $id);
                     $count++;
                 }
@@ -892,16 +898,24 @@ final class Kernel
         if (!$item || !$template) {
             $this->fail('素材またはテンプレートが見つかりません。', '/posts');
         }
+        $mediaStmt = $this->pdo->prepare('SELECT media_url FROM xpp_source_media WHERE source_item_id=? AND media_type=\'image\' ORDER BY sort_order,id');
+        $mediaStmt->execute([$itemId]);
+        $imageUrls = array_values(array_unique(array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url')))));
+        if ($item['image_url'] !== '' && !in_array((string)$item['image_url'], $imageUrls, true)) {
+            array_unshift($imageUrls, (string)$item['image_url']);
+        }
         $hashtags = $this->hashtags((string)$item['title'], (string)$item['actress']);
-        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_url}' => $item['affiliate_url'], '{image_url}' => $item['image_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre']];
+        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_url}' => $item['affiliate_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre']];
         $body = strtr((string)$template['body'], $replace);
         $now = $this->now();
         $this->pdo->prepare('INSERT INTO xpp_posts(source_type,source_item_id,template_id,title,body,status,created_at,updated_at) VALUES(?,?,?,?,?,\'draft\',?,?)')
             ->execute([$item['source_type'], $itemId, $templateId, $item['title'], $body, $now, $now]);
         $postId = (int)$this->pdo->lastInsertId();
-        foreach ([['image', $item['image_url'], null], ['video', $item['media_url'], null]] as [$type, $url, $local]) {
+        $postMedia = array_map(fn(string $url): array => ['image', $url, null], $imageUrls);
+        $postMedia[] = ['video', $item['media_url'], null];
+        foreach ($postMedia as $sortOrder => [$type, $url, $local]) {
             if ($url) {
-                $this->pdo->prepare('INSERT INTO xpp_post_media(post_id,media_type,media_url,local_path,sort_order,created_at) VALUES(?,?,?,?,0,?)')->execute([$postId, $type, $url, $local, $now]);
+                $this->pdo->prepare('INSERT INTO xpp_post_media(post_id,media_type,media_url,local_path,sort_order,created_at) VALUES(?,?,?,?,?,?)')->execute([$postId, $type, $url, $local, $sortOrder, $now]);
             }
         }
         $this->success('投稿を作成しました。', '/posts');
@@ -1236,14 +1250,54 @@ final class Kernel
         return $bytes;
     }
 
-    private function rssImage(\SimpleXMLElement $entry): string
+    private function rssImages(\SimpleXMLElement $entry): array
     {
-        foreach ($entry->children('media', true) as $child) {
-            $url = (string)($child['url'] ?? '');
-            if ($url !== '') return $url;
+        $images = [];
+        $add = static function (mixed $url) use (&$images): void {
+            $url = trim(html_entity_decode((string)$url, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            if ($url !== '' && filter_var($url, FILTER_VALIDATE_URL) && !in_array($url, $images, true)) {
+                $images[] = $url;
+            }
+        };
+
+        foreach ($entry->enclosure as $enclosure) {
+            $type = strtolower((string)($enclosure['type'] ?? ''));
+            if ($type === '' || str_starts_with($type, 'image/')) {
+                $add($enclosure['url'] ?? '');
+            }
         }
-        $html = (string)($entry->description ?? $entry->content ?? '');
-        return preg_match('/<img[^>]+src=["\']([^"\']+)/i', $html, $m) ? html_entity_decode($m[1]) : '';
+        foreach ($entry->link as $link) {
+            $type = strtolower((string)($link['type'] ?? ''));
+            if ((string)($link['rel'] ?? '') === 'enclosure' && str_starts_with($type, 'image/')) {
+                $add($link['href'] ?? '');
+            }
+        }
+
+        $namespaces = $entry->getNamespaces(true);
+        if (isset($namespaces['media'])) {
+            $entry->registerXPathNamespace('media', $namespaces['media']);
+            foreach ((array)$entry->xpath('.//media:content | .//media:thumbnail') as $media) {
+                $type = strtolower((string)($media['type'] ?? ''));
+                if ($type === '' || str_starts_with($type, 'image/') || $media->getName() === 'thumbnail') {
+                    $add($media['url'] ?? '');
+                }
+            }
+        }
+
+        $htmlParts = [(string)($entry->description ?? ''), (string)($entry->summary ?? ''), (string)($entry->content ?? '')];
+        if (isset($namespaces['content'])) {
+            foreach ($entry->children($namespaces['content']) as $content) {
+                $htmlParts[] = (string)$content;
+            }
+        }
+        foreach ($htmlParts as $html) {
+            if (preg_match_all('/<img[^>]+(?:src|data-src|data-lazy-src)=["\']([^"\']+)/i', $html, $matches)) {
+                foreach ($matches[1] as $url) {
+                    $add($url);
+                }
+            }
+        }
+        return $images;
     }
 
     private function names(mixed $rows): string
