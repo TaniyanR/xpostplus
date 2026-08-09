@@ -235,7 +235,7 @@ final class Kernel
             . '</section>'
             . '<section class="dashboard-management">'
             . $this->guideCard('投稿管理', 'API・RSSの記事取得から投稿作成、コピー、編集、削除まで行います。', '/posts')
-            . $this->guideCard('設定', 'DBとログイン情報を設定します。', '/settings')
+            . $this->guideCard('設定', 'メールアドレスとパスワードを変更します。', '/settings')
             . '</section>';
     }
 
@@ -273,8 +273,7 @@ final class Kernel
             . '<section class="panel"><form method="post" action="' . $this->url('/videos/analyze') . '" enctype="multipart/form-data">' . $this->csrfField()
             . '<label>動画ページURLまたはMP4 URL<input name="video_url" type="url" required maxlength="1000"></label>'
             . '<p class="help">ログイン・DRMが必要な動画には対応しません。解析できない場合はMP4 URLを直接入力してください。</p><button class="primary">解析してダウンロード</button></form></section>'
-            . '<section class="video-grid">' . ($cards ?: '<div class="empty">動画素材はありません。</div>') . '</section>'
-            . $this->itemList('video', $this->items('video'));
+            . '<section class="video-grid">' . ($cards ?: '<div class="empty">動画素材はありません。</div>') . '</section>';
     }
 
     private function templatePage(string $type, ?string $service = null): string
@@ -336,47 +335,64 @@ final class Kernel
     private function posts(): string
     {
         $status = ($_GET['status'] ?? 'draft') === 'posted' ? 'posted' : 'draft';
+        $apiPerPage = $this->perPage('api_per_page');
+        $rssPerPage = $this->perPage('rss_per_page');
+        $postPerPage = $this->perPage('post_per_page');
+        $apiItems = $this->pagedItems('api', $this->pageNumber('api_page'), $apiPerPage);
+        $rssItems = $this->pagedItems('rss', $this->pageNumber('rss_page'), $rssPerPage);
         $materials = '<section class="post-materials"><div class="section-title"><span>2</span><div><h2>取得済み素材を選ぶ</h2><p>API商品またはRSS記事のテンプレートを選び、投稿文を作成します。</p></div></div>'
-            . $this->itemList('api', $this->items('api'))
-            . $this->itemList('rss', $this->items('rss')) . '</section>';
+            . $this->itemList('api', $apiItems, 'api_page', 'api_per_page', $apiPerPage)
+            . $this->itemList('rss', $rssItems, 'rss_page', 'rss_per_page', $rssPerPage) . '</section>';
         $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>API・RSSの記事取得から、投稿作成、コピー、編集、削除までをここで行います。</p></section>'
             . $this->postAcquisitionPanels() . $materials;
-        $stmt = $this->pdo->prepare('SELECT p.*, t.name template_name FROM xpp_posts p LEFT JOIN xpp_templates t ON t.id=p.template_id WHERE p.status=? ORDER BY p.id DESC');
+        $countStmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_posts WHERE status=?');
+        $countStmt->execute([$status]);
+        $total = (int)$countStmt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $postPerPage));
+        $postPage = min($this->pageNumber('post_page'), $pages);
+        $offset = ($postPage - 1) * $postPerPage;
+        $stmt = $this->pdo->prepare('SELECT p.*, t.name template_name FROM xpp_posts p LEFT JOIN xpp_templates t ON t.id=p.template_id WHERE p.status=? ORDER BY p.id DESC LIMIT ' . $postPerPage . ' OFFSET ' . $offset);
         $stmt->execute([$status]);
         $posts = $stmt->fetchAll();
+        $postToolbar = $this->listToolbar('post_per_page', 'post_page', $postPerPage, $total, '投稿');
         if (!$posts) {
-            return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>未投稿と投稿済みを切り替えて確認します。</p></div></div>' . $this->postTabs($status) . '<section class="panel"><div class="empty"><strong>対象の投稿はありません。</strong></div></section>';
+            return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>未投稿と投稿済みを切り替えて確認します。</p></div></div>' . $this->postTabs($status) . '<section class="panel">' . $postToolbar . '<div class="empty"><strong>対象の投稿はありません。</strong></div></section>';
         }
         $rows = '';
         foreach ($posts as $post) {
             $copyLabel = $status === 'posted' ? '再コピー' : 'コピー';
             $mediaStmt = $this->pdo->prepare('SELECT * FROM xpp_post_media WHERE post_id=? ORDER BY sort_order,id');
             $mediaStmt->execute([(int)$post['id']]);
-            $mediaHtml = '';
+            $mediaHtml = '<span class="no-image">画像なし</span>';
             foreach ($mediaStmt->fetchAll() as $media) {
                 $src = $media['local_path'] ? $this->mediaUrl($media['local_path']) : $media['media_url'];
                 if (!$src) continue;
-                $preview = $media['media_type'] === 'video' ? '<video controls preload="metadata" src="' . $this->e($src) . '"></video>' : '<img src="' . $this->e($src) . '" loading="lazy" alt="">';
-                $mediaHtml .= '<div class="post-media">' . $preview . '<a class="secondary" href="' . $this->e($src) . '" target="_blank" rel="noopener">メディアを開く</a></div>';
+                $mediaHtml = '<a href="' . $this->e($src) . '" target="_blank" rel="noopener"><img class="list-thumbnail" src="' . $this->e($src) . '" loading="lazy" alt=""></a>';
+                break;
             }
-            $rows .= '<article class="post-card"><label class="select-box"><input form="bulk-delete" type="checkbox" name="ids[]" value="' . (int)$post['id'] . '"></label>'
-                . '<div class="post-main"><div class="post-meta"><span>' . $this->e(strtoupper($post['source_type'])) . '</span><span>' . $this->e($post['template_name'] ?? 'テンプレートなし') . '</span><span>' . $this->e($post['created_at']) . '</span></div>'
-                . $mediaHtml . '<form method="post" action="' . $this->url('/posts/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><input type="hidden" name="status" value="' . $status . '"><label>タイトル<input name="title" value="' . $this->e($post['title']) . '" required></label><label>投稿本文<textarea name="body" rows="6" required>' . $this->e($post['body']) . '</textarea></label><button class="secondary">編集を保存</button></form></div>'
-                . '<div class="post-actions"><form class="copy-form" method="post" action="' . $this->url('/posts/copy') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="primary" data-copy-text="' . $this->e($post['body']) . '">' . $copyLabel . '</button></form>'
-                . '<form method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'この投稿を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="danger">削除</button></form></div></article>';
+            $rows .= '<tr><td><input form="bulk-delete" type="checkbox" name="ids[]" value="' . (int)$post['id'] . '"></td><td>' . $mediaHtml . '</td>'
+                . '<td class="title-column"><strong>' . $this->e($post['title']) . '</strong><div class="row-actions"><details><summary>編集</summary><form class="inline-edit" method="post" action="' . $this->url('/posts/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><input type="hidden" name="status" value="' . $status . '"><label>タイトル<input name="title" value="' . $this->e($post['title']) . '" required></label><label>投稿本文<textarea name="body" rows="6" required>' . $this->e($post['body']) . '</textarea></label><button class="secondary">編集を保存</button></form></details></div></td>'
+                . '<td><span class="type-badge">' . $this->e(strtoupper($post['source_type'])) . '</span></td><td>' . $this->e($post['template_name'] ?? 'テンプレートなし') . '</td><td>' . ($status === 'posted' ? '投稿済み' : '未投稿') . '</td><td class="date-column">' . $this->e($post['created_at']) . '</td>'
+                . '<td class="action-column"><form class="copy-form" method="post" action="' . $this->url('/posts/copy') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="primary" data-copy-text="' . $this->e($post['body']) . '">' . $copyLabel . '</button></form><form method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'この投稿を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="danger">削除</button></form></td></tr>';
         }
         return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>コピーすると自動で投稿済みになります。</p></div></div>' . $this->postTabs($status)
-            . '<form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択した投稿を削除しますか？\')">' . $this->csrfField() . '<button class="danger">選択した投稿を削除</button></form><section class="post-list">' . $rows . '</section>';
+            . '<section class="panel list-panel">' . $postToolbar . '<form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択した投稿を削除しますか？\')">' . $this->csrfField() . '<div class="list-actions"><button type="button" class="secondary" data-select-all=".post-table input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した投稿を削除</button></div></form><div class="table-wrap"><table class="wp-list-table post-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル</th><th>種類</th><th>テンプレート</th><th>状態</th><th>作成日時</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' . $this->pagination('post_page', $postPage, $pages) . '</section>';
     }
 
     private function postAcquisitionPanels(): string
     {
         $statuses = $this->apiStatuses();
-        $apiChoices = '';
-        foreach (['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'] as $service => $label) {
-            $status = $statuses[$service] ?? '未設定';
-            $apiChoices .= '<label><input type="checkbox" name="services[]" value="' . $service . '"' . ($status === '未設定' ? ' disabled' : '') . '> ' . $label . '<small>' . $this->e($status) . '</small></label>';
+        $services = ['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'];
+        $selected = (string)($_GET['api_service'] ?? 'fanza');
+        if (!isset($services[$selected])) $selected = 'fanza';
+        $apiTabs = '<div class="tabs api-source-tabs">';
+        foreach ($services as $service => $label) {
+            $apiTabs .= '<a class="button ' . ($selected === $service ? 'active' : '') . '" href="' . $this->url('/posts?api_service=' . $service) . '#api-fetch">' . $label . '</a>';
         }
+        $apiTabs .= '</div>';
+        $apiStatus = $statuses[$selected] ?? '未設定';
+        $disabled = $apiStatus === '未設定' || $apiStatus === '無効';
+        $conditionFields = $this->apiConditionFields($selected);
 
         $feeds = $this->pdo->query('SELECT * FROM xpp_rss_feeds WHERE enabled=1 ORDER BY id DESC')->fetchAll();
         $feedChoices = '';
@@ -386,10 +402,31 @@ final class Kernel
         }
 
         return '<section class="post-fetch-step"><div class="section-title"><span>1</span><div><h2>素材を取得</h2><p>API商品またはRSS記事を取得します。</p></div></div><div class="rss-tools-grid post-fetch-grid">'
-            . '<article class="panel"><h2>APIから商品を取得</h2><p>取得元とキーワードを指定します。</p><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
-            . '<div class="source-options">' . $apiChoices . '</div><label>キーワード<input name="keyword" type="text" maxlength="190"></label><button class="primary">選択したAPIから取得</button></form></article>'
+            . '<article class="panel" id="api-fetch"><h2>APIから商品を取得</h2><p>サイトを1つ選び、取得条件を指定します。</p>' . $apiTabs . '<div class="api-current-status"><strong>' . $services[$selected] . '</strong><span>' . $this->e($apiStatus) . '</span></div><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
+            . '<input type="hidden" name="service" value="' . $selected . '">' . $conditionFields . '<div class="button-row left"><button class="primary"' . ($disabled ? ' disabled' : '') . '>' . $services[$selected] . 'から取得</button><a class="secondary" href="' . $this->url('/api-settings/' . $selected) . '">' . $services[$selected] . '設定</a></div></form></article>'
             . '<article class="panel"><h2>RSSから記事を取得</h2><p>取得するRSSを選択します。</p><form method="post" action="' . $this->url('/posts/fetch-rss') . '">' . $this->csrfField()
             . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから取得</button></div></form></article></div></section>';
+    }
+
+    private function apiConditionFields(string $service): string
+    {
+        $sorts = match ($service) {
+            'fanza' => ['date' => '発売日順', 'rank' => '人気順', 'review' => '評価順', 'price' => '価格が高い順', '-price' => '価格が安い順'],
+            'duga' => ['new' => '新着順', 'release' => '発売日順', 'favorite' => '人気順', 'rating' => '評価順', 'mylist' => 'マイリスト順', 'price' => '価格順'],
+            default => ['date' => '新着順', 'price' => '価格が高い順', '-price' => '価格が安い順'],
+        };
+        $sortOptions = '';
+        foreach ($sorts as $value => $label) $sortOptions .= '<option value="' . $this->e($value) . '">' . $this->e($label) . '</option>';
+        $hitsOptions = '';
+        foreach ([10, 20, 30, 50, 100] as $hits) $hitsOptions .= '<option value="' . $hits . '"' . ($hits === 20 ? ' selected' : '') . '>' . $hits . '件</option>';
+        $common = '<div class="form-grid api-condition-grid"><label>キーワード<input name="keyword" type="text" maxlength="190" placeholder="タイトル・出演者名など"></label><label>取得件数<select name="hits">' . $hitsOptions . '</select></label><label>並び順<select name="sort">' . $sortOptions . '</select></label><label>発売日・配信開始日（開始）<input name="date_from" type="date"></label><label>発売日・配信開始日（終了）<input name="date_to" type="date"></label>';
+        if ($service === 'fanza') {
+            return $common . '<label>絞り込み項目<select name="article"><option value="">指定なし</option><option value="actress">女優</option><option value="genre">ジャンル</option><option value="series">シリーズ</option><option value="maker">メーカー</option></select></label><label>絞り込みID<input name="article_id" type="text" maxlength="190" placeholder="項目を指定した場合に入力"></label></div>';
+        }
+        if ($service === 'duga') {
+            return $common . '<label>販売種別<select name="target"><option value="">すべて</option><option value="ppv">すべてのPPV</option><option value="sd">通常版</option><option value="rental">レンタル</option><option value="hd">HD版</option><option value="hdrental">HD版レンタル</option></select></label><label>カテゴリID<input name="category" type="text" maxlength="190"></label><label>出演者ID<input name="performer_id" type="text" maxlength="190"></label></div>';
+        }
+        return $common . '<label>カテゴリ<select name="category"><option value="av">アダルト動画</option><option value="idol">グラビア</option></select></label><label>絞り込み項目<select name="article"><option value="">指定なし</option><option value="actor">出演者</option><option value="director">監督</option><option value="genre">ジャンル</option><option value="maker">メーカー</option><option value="label">レーベル</option><option value="series">シリーズ</option></select></label><label>絞り込みID<input name="article_id" type="text" maxlength="190" placeholder="項目を指定した場合に入力"></label></div>';
     }
 
     private function settings(): string
@@ -620,26 +657,44 @@ final class Kernel
 
     private function fetchApiItems(): never
     {
-        $services = array_values(array_intersect((array)($_POST['services'] ?? []), ['fanza', 'duga', 'sokumiru']));
-        if (!$services) {
-            $this->fail('取得対象を選択してください。', '/posts');
+        $service = (string)($_POST['service'] ?? '');
+        if (!in_array($service, ['fanza', 'duga', 'sokumiru'], true)) {
+            $this->fail('取得するAPIを選択してください。', '/posts');
         }
         $keyword = trim((string)($_POST['keyword'] ?? ''));
+        $hits = (int)($_POST['hits'] ?? 20);
+        if (!in_array($hits, [10, 20, 30, 50, 100], true)) $hits = 20;
+        $filters = [
+            'sort' => trim((string)($_POST['sort'] ?? '')),
+            'date_from' => trim((string)($_POST['date_from'] ?? '')),
+            'date_to' => trim((string)($_POST['date_to'] ?? '')),
+            'article' => trim((string)($_POST['article'] ?? '')),
+            'article_id' => trim((string)($_POST['article_id'] ?? '')),
+            'target' => trim((string)($_POST['target'] ?? '')),
+            'category' => trim((string)($_POST['category'] ?? '')),
+            'performer_id' => trim((string)($_POST['performer_id'] ?? '')),
+        ];
+        foreach (['date_from', 'date_to'] as $dateKey) {
+            if ($filters[$dateKey] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$dateKey])) {
+                $this->fail('日付を正しく入力してください。', '/posts?api_service=' . $service);
+            }
+        }
+        if ($filters['date_from'] !== '' && $filters['date_to'] !== '' && $filters['date_from'] > $filters['date_to']) {
+            $this->fail('開始日は終了日より前の日付にしてください。', '/posts?api_service=' . $service);
+        }
         $count = 0;
         try {
-            foreach ($services as $service) {
-                foreach ($this->requestApi($service, $keyword, 100) as $item) {
-                    $this->upsertItem('api', $service, $item);
-                    $count++;
-                }
+            foreach ($this->requestApi($service, $keyword, $hits, $filters) as $item) {
+                $this->upsertItem('api', $service, $item);
+                $count++;
             }
         } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/posts');
+            $this->fail($e->getMessage(), '/posts?api_service=' . $service);
         }
-        $this->success($count . '件の商品を取得しました。', '/posts');
+        $this->success($count . '件の商品を取得しました。', '/posts?api_service=' . $service);
     }
 
-    private function requestApi(string $service, string $keyword, int $hits): array
+    private function requestApi(string $service, string $keyword, int $hits, array $filters = []): array
     {
         $credentials = $this->apiCredentials($service);
         if (!$credentials) {
@@ -649,11 +704,19 @@ final class Kernel
             $params = [
                 'api_id' => $credentials['api_id'], 'affiliate_id' => $credentials['affiliate_id'],
                 'site' => 'FANZA', 'service' => 'digital', 'floor' => 'videoa',
-                'hits' => min(100, $hits), 'sort' => 'date', 'output' => 'json',
+                'hits' => min(100, $hits), 'sort' => $this->allowedValue((string)($filters['sort'] ?? ''), ['date', 'rank', 'review', 'price', '-price'], 'date'), 'output' => 'json',
             ];
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
             }
+            $article = $this->allowedValue((string)($filters['article'] ?? ''), ['actress', 'genre', 'series', 'maker'], '');
+            $articleId = trim((string)($filters['article_id'] ?? ''));
+            if ($article !== '' && $articleId !== '') {
+                $params['article'] = $article;
+                $params['article_id'] = $articleId;
+            }
+            if (($filters['date_from'] ?? '') !== '') $params['gte_date'] = $filters['date_from'] . 'T00:00:00';
+            if (($filters['date_to'] ?? '') !== '') $params['lte_date'] = $filters['date_to'] . 'T23:59:59';
             $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query($params);
             $data = $this->httpJson($url, 'FANZA');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
@@ -679,11 +742,17 @@ final class Kernel
             $params = [
                 'version' => '1.2', 'appid' => $credentials['appid'], 'agentid' => $credentials['agentid'],
                 'bannerid' => $credentials['bannerid'], 'format' => 'json',
-                'hits' => min(100, $hits), 'adult' => 1, 'sort' => 'new',
+                'hits' => min(100, $hits), 'adult' => 1, 'sort' => $this->allowedValue((string)($filters['sort'] ?? ''), ['favorite', 'release', 'new', 'price', 'rating', 'mylist'], 'new'),
             ];
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
             }
+            $target = $this->allowedValue((string)($filters['target'] ?? ''), ['ppv', 'sd', 'rental', 'hd', 'hdrental'], '');
+            if ($target !== '') $params['target'] = $target;
+            if (($filters['category'] ?? '') !== '') $params['category'] = $filters['category'];
+            if (($filters['performer_id'] ?? '') !== '') $params['performerid'] = $filters['performer_id'];
+            if (($filters['date_from'] ?? '') !== '') $params['releasestt'] = str_replace('-', '', $filters['date_from']);
+            if (($filters['date_to'] ?? '') !== '') $params['releaseend'] = str_replace('-', '', $filters['date_to']);
             $url = 'https://affapi.duga.jp/search?' . http_build_query($params);
             $data = $this->httpJson($url, 'DUGA');
             $rows = $data['items']['item'] ?? $data['items'] ?? [];
@@ -710,11 +779,20 @@ final class Kernel
         if ($service === 'sokumiru') {
             $params = [
                 'affiliate_id' => $credentials['affiliate_id'], 'api_key' => $credentials['api_key'],
-                'output' => 'json', 'hits' => min(100, $hits), 'sort' => 'date', 'category' => 'av',
+                'output' => 'json', 'hits' => min(100, $hits), 'sort' => $this->allowedValue((string)($filters['sort'] ?? ''), ['date', 'price', '-price'], 'date'),
+                'category' => $this->allowedValue((string)($filters['category'] ?? ''), ['av', 'idol'], 'av'),
             ];
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
             }
+            $article = $this->allowedValue((string)($filters['article'] ?? ''), ['actor', 'director', 'genre', 'maker', 'label', 'series'], '');
+            $articleId = trim((string)($filters['article_id'] ?? ''));
+            if ($article !== '' && $articleId !== '') {
+                $params['article'] = $article;
+                $params['article_id'] = $articleId;
+            }
+            if (($filters['date_from'] ?? '') !== '') $params['gte_date'] = $filters['date_from'] . 'T00:00:00';
+            if (($filters['date_to'] ?? '') !== '') $params['lte_date'] = $filters['date_to'] . 'T23:59:59';
             $url = 'https://sokmil-ad.com/api/v1/Item?' . http_build_query($params);
             $data = $this->httpJson($url, 'SOKUMIRU');
             if ((int)($data['result']['status'] ?? 0) !== 200) {
@@ -1012,14 +1090,20 @@ final class Kernel
         $this->success('投稿を削除しました。', '/posts');
     }
 
-    private function items(string $type): array
+    private function pagedItems(string $type, int $page, int $perPage): array
     {
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_source_items WHERE source_type=? ORDER BY id DESC LIMIT 100');
+        $countStmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_source_items WHERE source_type=?');
+        $countStmt->execute([$type]);
+        $total = (int)$countStmt->fetchColumn();
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+        $stmt = $this->pdo->prepare('SELECT * FROM xpp_source_items WHERE source_type=? ORDER BY id DESC LIMIT ' . $perPage . ' OFFSET ' . $offset);
         $stmt->execute([$type]);
-        return $stmt->fetchAll();
+        return ['rows' => $stmt->fetchAll(), 'total' => $total, 'pages' => $pages, 'page' => $page];
     }
 
-    private function itemList(string $type, array $items): string
+    private function itemList(string $type, array $pageData, string $pageKey, string $perPageKey, int $perPage): string
     {
         $stmt = $this->pdo->prepare('SELECT * FROM xpp_templates WHERE source_type=? ORDER BY service,sort_order,id');
         $stmt->execute([$type]);
@@ -1030,7 +1114,8 @@ final class Kernel
                 $templateGroups[$key][] = $template;
             }
         }
-        $cards = '';
+        $items = $pageData['rows'];
+        $rows = '';
         foreach ($items as $item) {
             $templateKey = $type === 'api' ? (string)$item['service'] : 'common';
             $templates = $templateGroups[$templateKey] ?? [];
@@ -1038,31 +1123,93 @@ final class Kernel
             foreach ($templates as $template) {
                 $options .= '<option value="' . (int)$template['id'] . '">' . $this->e($template['name']) . '</option>';
             }
-            $links = '<div class="button-row left">';
+            $links = '<div class="row-links">';
             if ($type === 'api' && !empty($item['affiliate_url'])) {
-                $links .= '<a class="secondary" href="' . $this->e((string)$item['affiliate_url']) . '" target="_blank" rel="noopener">アフィリエイトリンク</a>';
+                $links .= '<a href="' . $this->e((string)$item['affiliate_url']) . '" target="_blank" rel="noopener">アフィリエイトリンク</a>';
             }
             if ($type === 'api' && !empty($item['media_url'])) {
-                $links .= '<a class="secondary" href="' . $this->e((string)$item['media_url']) . '" target="_blank" rel="noopener">サンプル動画</a>';
+                $links .= '<a href="' . $this->e((string)$item['media_url']) . '" target="_blank" rel="noopener">サンプル動画</a>';
             }
             if ($type === 'rss' && !empty($item['source_url'])) {
-                $links .= '<a class="secondary" href="' . $this->e((string)$item['source_url']) . '" target="_blank" rel="noopener">記事を開く</a>';
+                $links .= '<a href="' . $this->e((string)$item['source_url']) . '" target="_blank" rel="noopener">記事を開く</a>';
             }
             $links .= '</div>';
             $tags = $this->itemHashtags($item, '');
             $tagLine = $tags !== '' ? '<p class="help">タグ：' . $this->e($tags) . '</p>' : '<p class="help">タグ：なし</p>';
-            $cards .= '<article class="item-card"><label class="select-box"><input form="source-bulk-delete-' . $type . '" type="checkbox" name="ids[]" value="' . (int)$item['id'] . '"></label>'
-                . ($item['image_url'] ? '<img src="' . $this->e($item['image_url']) . '" loading="lazy" alt="">' : '')
-                . '<div><small>' . $this->e(strtoupper((string)$item['service'])) . '</small><h3>' . $this->e($item['title']) . '</h3><p>' . $this->e(mb_substr((string)$item['description'], 0, 180)) . '</p>'
-                . $tagLine . $links
-                . '<form method="post" action="' . $this->url('/posts/generate') . '">' . $this->csrfField() . '<input type="hidden" name="source_item_id" value="' . (int)$item['id'] . '"><label>テンプレート<select name="template_id" required>' . $options . '</select></label><button class="primary"' . (!$templates ? ' disabled' : '') . '>投稿作成</button></form>'
-                . '<form class="item-delete" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">個別削除</button></form></div></article>';
+            $image = !empty($item['image_url']) ? '<img class="list-thumbnail" src="' . $this->e($item['image_url']) . '" loading="lazy" alt="">' : '<span class="no-image">画像なし</span>';
+            $rows .= '<tr><td><input form="source-bulk-delete-' . $type . '" type="checkbox" name="ids[]" value="' . (int)$item['id'] . '"></td><td>' . $image . '</td>'
+                . '<td class="title-column"><strong>' . $this->e($item['title']) . '</strong><p class="excerpt">' . $this->e(mb_substr((string)$item['description'], 0, 120)) . '</p>' . $tagLine . $links . '</td>'
+                . '<td><span class="type-badge">' . $this->e(strtoupper((string)$item['service'])) . '</span></td><td class="date-column">' . $this->e((string)($item['published_at'] ?: $item['created_at'])) . '</td>'
+                . '<td class="template-column"><form class="generate-form" method="post" action="' . $this->url('/posts/generate') . '">' . $this->csrfField() . '<input type="hidden" name="source_item_id" value="' . (int)$item['id'] . '"><select name="template_id" required aria-label="テンプレート">' . $options . '</select><button class="primary"' . (!$templates ? ' disabled' : '') . '>投稿作成</button></form></td>'
+                . '<td class="action-column"><form method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">削除</button></form></td></tr>';
         }
-        $actions = $items ? '<form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="button-row left"><button type="button" class="secondary" data-select-all=".item-card input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した素材を一括削除</button></div></form>' : '';
+        $actions = $items ? '<form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="list-actions"><button type="button" class="secondary" data-select-all=".' . $type . '-item-table input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した素材を一括削除</button></div></form>' : '';
         $heading = $type === 'rss' ? 'RSS取得記事' : 'API取得素材';
         $emptyText = $type === 'rss' ? 'まだ記事を取得していません。' : 'まだ素材はありません。';
         $titleHtml = '<h2>' . $heading . '</h2><p>テンプレートを選び「投稿作成」を押してください。</p>';
-        return '<section class="panel item-section">' . $titleHtml . $actions . '<div class="item-grid">' . ($cards ?: '<div class="empty">' . $emptyText . '</div>') . '</div></section>';
+        $toolbar = $this->listToolbar($perPageKey, $pageKey, $perPage, (int)$pageData['total'], $type === 'rss' ? '記事' : '素材');
+        $table = $items ? '<div class="table-wrap"><table class="wp-list-table ' . $type . '-item-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル・情報</th><th>取得元</th><th>公開日</th><th>テンプレート・投稿作成</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' : '<div class="empty">' . $emptyText . '</div>';
+        return '<section class="panel item-section list-panel">' . $titleHtml . $toolbar . $actions . $table . $this->pagination($pageKey, (int)$pageData['page'], (int)$pageData['pages']) . '</section>';
+    }
+
+    private function perPage(string $key): int
+    {
+        $value = (int)($_GET[$key] ?? 10);
+        return in_array($value, [10, 20, 30, 50, 100], true) ? $value : 10;
+    }
+
+    private function pageNumber(string $key): int
+    {
+        return max(1, (int)($_GET[$key] ?? 1));
+    }
+
+    private function listToolbar(string $perPageKey, string $pageKey, int $perPage, int $total, string $unit): string
+    {
+        $hidden = $this->queryHiddenFields([$perPageKey, $pageKey]);
+        $options = '';
+        foreach ([10, 20, 30, 50, 100] as $value) {
+            $options .= '<option value="' . $value . '"' . ($value === $perPage ? ' selected' : '') . '>' . $value . '</option>';
+        }
+        return '<div class="list-toolbar"><strong>全' . $total . $unit . '</strong><form method="get">' . $hidden . '<label>表示件数 <select name="' . $perPageKey . '" onchange="this.form.submit()">' . $options . '</select></label><noscript><button class="secondary">変更</button></noscript></form></div>';
+    }
+
+    private function pagination(string $pageKey, int $page, int $pages): string
+    {
+        if ($pages <= 1) return '';
+        $link = function (int $target, string $label, bool $disabled = false) use ($pageKey): string {
+            if ($disabled) return '<span class="page-button disabled">' . $label . '</span>';
+            $query = $this->safeQuery([$pageKey => $target]);
+            return '<a class="page-button" href="' . $this->url('/posts?' . http_build_query($query)) . '">' . $label . '</a>';
+        };
+        return '<nav class="pagination" aria-label="ページ送り">' . $link(1, '最初', $page === 1) . $link(max(1, $page - 1), '前へ', $page === 1) . '<span class="page-status">' . $page . ' / ' . $pages . 'ページ</span>' . $link(min($pages, $page + 1), '次へ', $page === $pages) . $link($pages, '最後', $page === $pages) . '</nav>';
+    }
+
+    private function queryHiddenFields(array $exclude): string
+    {
+        $html = '';
+        foreach ($this->safeQuery() as $key => $value) {
+            if (in_array($key, $exclude, true)) continue;
+            $html .= '<input type="hidden" name="' . $this->e($key) . '" value="' . $this->e((string)$value) . '">';
+        }
+        return $html;
+    }
+
+    private function safeQuery(array $overrides = []): array
+    {
+        $allowed = ['status', 'api_service', 'api_page', 'rss_page', 'post_page', 'api_per_page', 'rss_per_page', 'post_per_page'];
+        $query = [];
+        foreach ($allowed as $key) {
+            if (isset($_GET[$key]) && is_scalar($_GET[$key])) $query[$key] = (string)$_GET[$key];
+        }
+        foreach ($overrides as $key => $value) {
+            if (in_array($key, $allowed, true)) $query[$key] = (string)$value;
+        }
+        return $query;
+    }
+
+    private function allowedValue(string $value, array $allowed, string $default): string
+    {
+        return in_array($value, $allowed, true) ? $value : $default;
     }
 
     private function deleteSourceItems(): never
