@@ -18,7 +18,7 @@ document.querySelectorAll('[data-select-all]').forEach((button) => {
     inputs.forEach((input) => {
       input.checked = shouldCheck;
     });
-    button.textContent = shouldCheck ? '全選択を解除' : '全選択';
+    button.textContent = shouldCheck ? '全選択を解除' : (button.dataset.selectLabel || '全選択');
   });
 });
 
