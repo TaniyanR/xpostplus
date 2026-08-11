@@ -115,8 +115,6 @@ final class Kernel
             '/rss-posts' => ['RSS設定', fn () => $this->redirect('/rss-settings')],
             '/rss-settings' => ['RSS設定', fn () => $this->rssPage()],
             '/rss-templates' => ['RSSテンプレート', fn () => $this->templatePage('rss')],
-            '/videos' => ['投稿管理', fn () => $this->redirect('/posts')],
-            '/video-templates' => ['投稿管理', fn () => $this->redirect('/posts')],
             '/posts' => ['投稿管理', fn () => $this->posts()],
             '/settings' => ['設定', fn () => $this->settings()],
         ];
@@ -172,7 +170,6 @@ final class Kernel
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_rss_feeds (id {$id}, name VARCHAR(190) NOT NULL, feed_url VARCHAR(1000) NOT NULL UNIQUE, enabled INTEGER NOT NULL DEFAULT 1, last_fetched_at DATETIME, last_error VARCHAR(1000), created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_items (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), external_id VARCHAR(190), feed_id INTEGER, title VARCHAR(500) NOT NULL, description {$text}, source_url VARCHAR(1000), affiliate_url VARCHAR(1000), image_url VARCHAR(1000), media_url VARCHAR(1000), actress VARCHAR(500), genre VARCHAR(500), series_name VARCHAR(500), maker VARCHAR(500), label VARCHAR(500), published_at DATETIME, raw_json {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_source_media (id {$id}, source_item_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000) NOT NULL, local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
-        $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_video_jobs (id {$id}, source_item_id INTEGER, input_type VARCHAR(20) NOT NULL, input_url VARCHAR(1000) NOT NULL, source_path VARCHAR(1000), output_path VARCHAR(1000), status VARCHAR(30) NOT NULL DEFAULT 'pending', progress INTEGER NOT NULL DEFAULT 0, start_seconds DECIMAL(12,3), end_seconds DECIMAL(12,3), aspect_ratio VARCHAR(10) NOT NULL DEFAULT 'original', quality VARCHAR(20) NOT NULL DEFAULT 'standard', muted INTEGER NOT NULL DEFAULT 0, source_size BIGINT, output_size BIGINT, error_message {$text}, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_templates (id {$id}, source_type VARCHAR(20) NOT NULL, service VARCHAR(30), name VARCHAR(190) NOT NULL, body {$text} NOT NULL, hashtag_fields VARCHAR(255), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_posts (id {$id}, source_type VARCHAR(20) NOT NULL, source_item_id INTEGER, template_id INTEGER, title VARCHAR(500) NOT NULL, body {$text} NOT NULL, status VARCHAR(20) NOT NULL DEFAULT 'draft', copied_at DATETIME, created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL)");
         $this->pdo->exec("CREATE TABLE IF NOT EXISTS xpp_post_media (id {$id}, post_id INTEGER NOT NULL, media_type VARCHAR(30) NOT NULL, media_url VARCHAR(1000), local_path VARCHAR(1000), sort_order INTEGER NOT NULL DEFAULT 0, created_at DATETIME NOT NULL)");
@@ -184,7 +181,6 @@ final class Kernel
         $this->ensureColumns('xpp_rss_feeds', ['name' => 'VARCHAR(190) NULL', 'feed_url' => 'VARCHAR(1000) NULL', 'enabled' => 'INTEGER NOT NULL DEFAULT 1', 'last_fetched_at' => 'DATETIME NULL', 'last_error' => 'VARCHAR(1000) NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_source_items', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'external_id' => 'VARCHAR(190) NULL', 'feed_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'description' => 'LONGTEXT NULL', 'source_url' => 'VARCHAR(1000) NULL', 'affiliate_url' => 'VARCHAR(1000) NULL', 'image_url' => 'VARCHAR(1000) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'actress' => 'VARCHAR(500) NULL', 'genre' => 'VARCHAR(500) NULL', 'series_name' => 'VARCHAR(500) NULL', 'maker' => 'VARCHAR(500) NULL', 'label' => 'VARCHAR(500) NULL', 'published_at' => 'DATETIME NULL', 'raw_json' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_source_media', ['source_item_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
-        $this->ensureColumns('xpp_video_jobs', ['source_item_id' => 'INTEGER NULL', 'input_type' => 'VARCHAR(20) NULL', 'input_url' => 'VARCHAR(1000) NULL', 'source_path' => 'VARCHAR(1000) NULL', 'output_path' => 'VARCHAR(1000) NULL', 'status' => "VARCHAR(30) NOT NULL DEFAULT 'pending'", 'progress' => 'INTEGER NOT NULL DEFAULT 0', 'start_seconds' => 'DECIMAL(12,3) NULL', 'end_seconds' => 'DECIMAL(12,3) NULL', 'aspect_ratio' => "VARCHAR(10) NOT NULL DEFAULT 'original'", 'quality' => "VARCHAR(20) NOT NULL DEFAULT 'standard'", 'muted' => 'INTEGER NOT NULL DEFAULT 0', 'source_size' => 'BIGINT NULL', 'output_size' => 'BIGINT NULL', 'error_message' => 'LONGTEXT NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_templates', ['source_type' => 'VARCHAR(20) NULL', 'service' => 'VARCHAR(30) NULL', 'name' => 'VARCHAR(190) NULL', 'body' => 'LONGTEXT NULL', 'hashtag_fields' => 'VARCHAR(255) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_posts', ['source_type' => 'VARCHAR(20) NULL', 'source_item_id' => 'INTEGER NULL', 'template_id' => 'INTEGER NULL', 'title' => 'VARCHAR(500) NULL', 'body' => 'LONGTEXT NULL', 'status' => "VARCHAR(20) NOT NULL DEFAULT 'draft'", 'copied_at' => 'DATETIME NULL', 'created_at' => 'DATETIME NULL', 'updated_at' => 'DATETIME NULL']);
         $this->ensureColumns('xpp_post_media', ['post_id' => 'INTEGER NULL', 'media_type' => 'VARCHAR(30) NULL', 'media_url' => 'VARCHAR(1000) NULL', 'local_path' => 'VARCHAR(1000) NULL', 'sort_order' => 'INTEGER NOT NULL DEFAULT 0', 'created_at' => 'DATETIME NULL']);
@@ -194,7 +190,6 @@ final class Kernel
         $this->createIndex('idx_xpp_items_external', 'xpp_source_items', 'source_type, service, external_id');
         $this->createIndex('idx_xpp_items_source_url', 'xpp_source_items', 'source_url');
         $this->createIndex('idx_xpp_media_item', 'xpp_source_media', 'source_item_id, sort_order');
-        $this->createIndex('idx_xpp_video_status', 'xpp_video_jobs', 'status, created_at');
         $this->createIndex('idx_xpp_templates_type', 'xpp_templates', 'source_type, sort_order');
         $this->createIndex('idx_xpp_templates_service', 'xpp_templates', 'source_type, service, sort_order');
         $this->createIndex('idx_xpp_posts_status', 'xpp_posts', 'status, created_at');
@@ -203,6 +198,13 @@ final class Kernel
         $migration->execute();
         if ((int)$migration->fetchColumn() === 0) {
             $this->pdo->prepare('INSERT INTO xpp_migrations(version,applied_at) VALUES(1,?)')->execute([$this->now()]);
+        }
+
+        $videoCleanup = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_migrations WHERE version=2');
+        $videoCleanup->execute();
+        if ((int)$videoCleanup->fetchColumn() === 0) {
+            $this->removeLegacyVideoData();
+            $this->pdo->prepare('INSERT INTO xpp_migrations(version,applied_at) VALUES(2,?)')->execute([$this->now()]);
         }
 
         $this->pdo->exec("UPDATE xpp_templates SET service='fanza' WHERE source_type='api' AND service IS NULL");
@@ -218,7 +220,9 @@ final class Kernel
                 : $this->pdo->prepare('SELECT COUNT(*) FROM xpp_templates WHERE source_type=? AND service=?');
             $stmt->execute($service === null ? [$type] : [$type, $service]);
             if ((int)$stmt->fetchColumn() === 0) {
-                $body = "{title}\n\n{url}\n{hashtags}";
+                $body = $type === 'api'
+                    ? "{title}\n\n{sample_movie}\n\n{affiliate_link}"
+                    : "{title}\n\n{url}\n{hashtags}";
                 $now = date('Y-m-d H:i:s');
                 $this->pdo->prepare('INSERT INTO xpp_templates (source_type, service, name, body, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, 1, ?, ?)')
                     ->execute([$type, $service, $name, $body, $now, $now]);
@@ -239,6 +243,52 @@ final class Kernel
             . '</section>';
     }
 
+    private function removeLegacyVideoData(): void
+    {
+        $paths = [];
+        try {
+            $rows = $this->pdo->query('SELECT source_path,output_path FROM xpp_video_jobs')->fetchAll();
+            foreach ($rows as $row) {
+                foreach (['source_path', 'output_path'] as $column) {
+                    if (!empty($row[$column])) $paths[] = (string)$row[$column];
+                }
+            }
+        } catch (\PDOException) {
+        }
+
+        $videoRoot = dirname(__DIR__, 2) . '/storage/media/videos';
+        $rootPath = realpath($videoRoot);
+        foreach (array_unique($paths) as $path) {
+            $realPath = realpath($path);
+            if ($rootPath !== false && $realPath !== false && str_starts_with($realPath, $rootPath . DIRECTORY_SEPARATOR) && is_file($realPath)) {
+                @unlink($realPath);
+            }
+        }
+        if (is_dir($videoRoot)) {
+            foreach (glob($videoRoot . '/*') ?: [] as $path) {
+                if (is_file($path)) @unlink($path);
+            }
+            @rmdir($videoRoot);
+        }
+
+        $itemStmt = $this->pdo->query("SELECT id FROM xpp_source_items WHERE source_type='video'");
+        $itemIds = array_map('intval', array_column($itemStmt->fetchAll(), 'id'));
+        $postStmt = $this->pdo->query("SELECT id FROM xpp_posts WHERE source_type='video'");
+        $postIds = array_map('intval', array_column($postStmt->fetchAll(), 'id'));
+        if ($postIds) {
+            $marks = implode(',', array_fill(0, count($postIds), '?'));
+            $this->pdo->prepare("DELETE FROM xpp_post_media WHERE post_id IN ({$marks})")->execute($postIds);
+        }
+        if ($itemIds) {
+            $marks = implode(',', array_fill(0, count($itemIds), '?'));
+            $this->pdo->prepare("DELETE FROM xpp_source_media WHERE source_item_id IN ({$marks})")->execute($itemIds);
+        }
+        $this->pdo->exec("DELETE FROM xpp_posts WHERE source_type='video'");
+        $this->pdo->exec("DELETE FROM xpp_source_items WHERE source_type='video'");
+        $this->pdo->exec("DELETE FROM xpp_templates WHERE source_type='video'");
+        $this->pdo->exec('DROP TABLE IF EXISTS xpp_video_jobs');
+    }
+
     private function rssPage(): string
     {
         $feeds = $this->pdo->query('SELECT * FROM xpp_rss_feeds ORDER BY id DESC')->fetchAll();
@@ -254,28 +304,6 @@ final class Kernel
             . '<article class="panel registered-feeds"><div class="section-title"><span>2</span><div><h2>登録済みRSS</h2><p>現在登録されている取得元です。</p></div></div><div class="table-wrap"><table><thead><tr><th>名前</th><th>URL</th><th>操作</th></tr></thead><tbody>' . ($rows ?: '<tr><td colspan="3">未登録です。</td></tr>') . '</tbody></table></div></article></section>';
     }
 
-    private function videoPage(): string
-    {
-        $jobs = $this->pdo->query('SELECT * FROM xpp_video_jobs ORDER BY id DESC LIMIT 20')->fetchAll();
-        $cards = '';
-        foreach ($jobs as $job) {
-            $media = $job['output_path'] ?: $job['source_path'];
-            $cards .= '<article class="video-card"><h3>動画 #' . (int)$job['id'] . '</h3><p>状態：' . $this->e($job['status']) . '</p>'
-                . ($media ? '<video controls preload="metadata" src="' . $this->e($this->mediaUrl($media)) . '"></video>' : '')
-                . '<form method="post" action="' . $this->url('/videos/edit') . '">' . $this->csrfField() . '<input type="hidden" name="job_id" value="' . (int)$job['id'] . '">'
-                . '<label>投稿素材のタイトル<input name="title" required maxlength="500" value="編集動画 #' . (int)$job['id'] . '"></label><div class="form-grid"><label>開始（秒）<input name="start_seconds" type="number" min="0" step="0.1" value="0"></label><label>終了（秒）<input name="end_seconds" type="number" min="0" step="0.1"></label>'
-                . '<label>縦横比<select name="aspect_ratio"><option value="original">元の比率</option><option value="16:9">16:9</option><option value="1:1">1:1</option><option value="9:16">9:16</option></select></label>'
-                . '<label>画質<select name="quality"><option value="high">高画質</option><option value="standard" selected>標準</option><option value="small">容量優先</option></select></label></div>'
-                . '<label class="inline-check"><input type="checkbox" name="muted" value="1"> 音声を消す</label><button class="primary">編集を実行</button></form></article>';
-        }
-        return $this->flashHtml()
-            . '<section class="page-head"><h1>動画投稿</h1><p>公開動画ページまたはMP4 URLを解析し、編集して投稿素材を作ります。</p></section>'
-            . '<section class="panel"><form method="post" action="' . $this->url('/videos/analyze') . '" enctype="multipart/form-data">' . $this->csrfField()
-            . '<label>動画ページURLまたはMP4 URL<input name="video_url" type="url" required maxlength="1000"></label>'
-            . '<p class="help">ログイン・DRMが必要な動画には対応しません。解析できない場合はMP4 URLを直接入力してください。</p><button class="primary">解析してダウンロード</button></form></section>'
-            . '<section class="video-grid">' . ($cards ?: '<div class="empty">動画素材はありません。</div>') . '</section>';
-    }
-
     private function templatePage(string $type, ?string $service = null): string
     {
         $labels = [
@@ -283,7 +311,6 @@ final class Kernel
             'api:duga' => ['DUGAテンプレート', 'DUGAの商品から投稿を作成するときに使用します。'],
             'api:sokumiru' => ['SOKUMIRUテンプレート', 'SOKUMIRUの商品から投稿を作成するときに使用します。'],
             'rss' => ['RSSテンプレート', 'RSS投稿で使用するテンプレートを管理します。'],
-            'video' => ['動画テンプレート', '動画投稿で使用するテンプレートを管理します。'],
         ];
         $labelKey = $type === 'api' ? 'api:' . $service : $type;
         if (!isset($labels[$labelKey])) {
@@ -300,27 +327,25 @@ final class Kernel
 
         $cards = '';
         foreach ($templates as $index => $template) {
-            $hashtagOptions = $type === 'api' ? $this->hashtagOptions((string)($template['hashtag_fields'] ?? '')) : '';
             $cards .= '<article class="template-card">'
                 . '<div class="template-card-head"><div><span class="template-number">テンプレート' . ($index + 1) . '</span><h2>' . $this->e($template['name']) . '</h2></div>'
                 . '<form method="post" action="' . $this->url('/templates/delete') . '" onsubmit="return confirm(\'削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<button class="danger">削除</button></form></div>'
                 . '<form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$template['id'] . '"><input type="hidden" name="source_type" value="' . $type . '">' . $serviceField
-                . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label>' . $hashtagOptions . '<button class="primary">保存</button></form>'
+                . '<label>テンプレート名<input name="name" value="' . $this->e($template['name']) . '" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $this->e($template['body']) . '</textarea></label><button class="primary">保存</button></form>'
                 . '</article>';
         }
 
         $count = count($templates);
         $defaultBody = $type === 'api'
-            ? '{title}' . "\n\n" . '{affiliate_link}' . "\n" . '{hashtags}'
+            ? '{title}' . "\n\n" . '{sample_movie}' . "\n\n" . '{affiliate_link}'
             : '{title}' . "\n\n" . '{url}' . "\n" . '{hashtags}';
         $addButton = $count < 3
-            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $defaultBody . '</textarea></label>' . ($type === 'api' ? $this->hashtagOptions('') : '') . '<button class="primary">登録</button></form></details>'
+            ? '<details class="new-template"><summary class="primary">新規テンプレートを追加</summary><form method="post" action="' . $this->url('/templates/save') . '">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '">' . $serviceField . '<label>テンプレート名<input name="name" required maxlength="190"></label><label>本文<textarea name="body" rows="7" required>' . $defaultBody . '</textarea></label><button class="primary">登録</button></form></details>'
             : '<button class="primary" type="button" disabled>最大3件まで登録済みです</button>';
 
         if ($type === 'api') {
-            $shortcodes = '<code>{title}</code> タイトル　<code>{sample_movie}</code> サンプル動画URL　<code>{package_image}</code> パッケージ画像URL<br>'
-                . '<code>{affiliate_link}</code> アフィリエイトリンク　<code>{hashtags}</code> 選択項目のハッシュタグ<br>'
-                . '<code>{actress}</code> 女優　<code>{genre}</code> ジャンル　<code>{series}</code> シリーズ　<code>{maker}</code> メーカー　<code>{label}</code> レーベル';
+            $shortcodes = '<code>{title}</code> タイトル　<code>{sample_movie}</code> サンプル動画URL<br>'
+                . '<code>{sample_image}</code> サンプル画像URL　<code>{affiliate_link}</code> 記事URL';
         } else {
             $shortcodes = '<code>{title}</code> タイトル　<code>{url}</code> 記事URL　<code>{hashtags}</code> RSS記事タグのハッシュタグ<br>';
             $shortcodes .= '<code>{tags}</code> RSS記事のタグ一覧　<code>{image_url}</code> 代表画像URL　<code>{image_urls}</code> 取得画像URL一覧';
@@ -335,16 +360,16 @@ final class Kernel
     private function posts(): string
     {
         $status = ($_GET['status'] ?? 'draft') === 'posted' ? 'posted' : 'draft';
-        $apiPerPage = $this->perPage('api_per_page');
-        $rssPerPage = $this->perPage('rss_per_page');
+        $source = ($_GET['source'] ?? 'api') === 'rss' ? 'rss' : 'api';
+        $itemPerPageKey = $source . '_per_page';
+        $itemPageKey = $source . '_page';
+        $itemPerPage = $this->perPage($itemPerPageKey);
         $postPerPage = $this->perPage('post_per_page');
-        $apiItems = $this->pagedItems('api', $this->pageNumber('api_page'), $apiPerPage);
-        $rssItems = $this->pagedItems('rss', $this->pageNumber('rss_page'), $rssPerPage);
-        $materials = '<section class="post-materials"><div class="section-title"><span>2</span><div><h2>取得済み素材を選ぶ</h2><p>API商品またはRSS記事のテンプレートを選び、投稿文を作成します。</p></div></div>'
-            . $this->itemList('api', $apiItems, 'api_page', 'api_per_page', $apiPerPage)
-            . $this->itemList('rss', $rssItems, 'rss_page', 'rss_per_page', $rssPerPage) . '</section>';
-        $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>API・RSSの記事取得から、投稿作成、コピー、編集、削除までをここで行います。</p></section>'
-            . $this->postAcquisitionPanels() . $materials;
+        $items = $this->pagedItems($source, $this->pageNumber($itemPageKey), $itemPerPage);
+        $materials = '<section class="post-materials"><div class="section-title"><span>2</span><div><h2>取得した記事を選ぶ</h2><p>必要な記事だけポストを作成し、余った記事は一覧から削除できます。</p></div></div>'
+            . $this->itemList($source, $items, $itemPageKey, $itemPerPageKey, $itemPerPage) . '</section>';
+        $pageHead = $this->flashHtml() . '<section class="page-head"><h1>投稿管理</h1><p>取得元を選ぶ → 記事を取得する → ポストを作る、の順に操作します。</p></section>'
+            . $this->postAcquisitionPanels($source) . $materials;
         $countStmt = $this->pdo->prepare('SELECT COUNT(*) FROM xpp_posts WHERE status=?');
         $countStmt->execute([$status]);
         $total = (int)$countStmt->fetchColumn();
@@ -356,7 +381,7 @@ final class Kernel
         $posts = $stmt->fetchAll();
         $postToolbar = $this->listToolbar('post_per_page', 'post_page', $postPerPage, $total, '投稿');
         if (!$posts) {
-            return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>未投稿と投稿済みを切り替えて確認します。</p></div></div>' . $this->postTabs($status) . '<section class="panel">' . $postToolbar . '<div class="empty"><strong>対象の投稿はありません。</strong></div></section>';
+            return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済みポスト</h2><p>未投稿と投稿済みを切り替えて確認します。</p></div></div>' . $this->postTabs($status) . '<section class="panel"><div class="empty"><strong>対象のポストはありません。</strong></div></section>';
         }
         $rows = '';
         foreach ($posts as $post) {
@@ -375,37 +400,43 @@ final class Kernel
                 . '<td><span class="type-badge">' . $this->e(strtoupper($post['source_type'])) . '</span></td><td>' . $this->e($post['template_name'] ?? 'テンプレートなし') . '</td><td>' . ($status === 'posted' ? '投稿済み' : '未投稿') . '</td><td class="date-column">' . $this->e($post['created_at']) . '</td>'
                 . '<td class="action-column"><form class="copy-form" method="post" action="' . $this->url('/posts/copy') . '">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="primary" data-copy-text="' . $this->e($post['body']) . '">' . $copyLabel . '</button></form><form method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'この投稿を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="id" value="' . (int)$post['id'] . '"><button class="danger">削除</button></form></td></tr>';
         }
-        return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済み投稿を管理</h2><p>コピーすると自動で投稿済みになります。</p></div></div>' . $this->postTabs($status)
-            . '<section class="panel list-panel">' . $postToolbar . '<form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択した投稿を削除しますか？\')">' . $this->csrfField() . '<div class="list-actions"><button type="button" class="secondary" data-select-all=".post-table input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した投稿を削除</button></div></form><div class="table-wrap"><table class="wp-list-table post-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル</th><th>種類</th><th>テンプレート</th><th>状態</th><th>作成日時</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' . $this->pagination('post_page', $postPage, $pages) . '</section>';
+        return $pageHead . '<div class="section-title"><span>3</span><div><h2>作成済みポスト</h2><p>コピーすると自動で投稿済みになります。</p></div></div>' . $this->postTabs($status)
+            . '<section class="panel list-panel"><details class="list-options"><summary>一覧の操作（表示件数・一括削除）</summary><div class="list-options-body">' . $postToolbar . '<p class="bulk-help">削除するポストにチェックを付けてください。「このページを全選択」は、現在表示中のポストだけを選びます。</p><form id="bulk-delete" method="post" action="' . $this->url('/posts/delete') . '" onsubmit="return confirm(\'選択したポストを削除しますか？\')">' . $this->csrfField() . '<div class="list-actions"><button type="button" class="secondary" data-select-all=".post-table input[name=&quot;ids[]&quot;]" data-select-label="このページを全選択">このページを全選択</button><button class="danger">選択したポストを削除</button></div></form></div></details><div class="table-wrap"><table class="wp-list-table post-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル</th><th>種類</th><th>テンプレート</th><th>状態</th><th>作成日時</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' . $this->pagination('post_page', $postPage, $pages) . '</section>';
     }
 
-    private function postAcquisitionPanels(): string
+    private function postAcquisitionPanels(string $source): string
     {
+        $sourceTabs = '<div class="tabs source-type-tabs"><a class="button ' . ($source === 'api' ? 'active' : '') . '" href="' . $this->url('/posts?source=api') . '">API取得</a><a class="button ' . ($source === 'rss' ? 'active' : '') . '" href="' . $this->url('/posts?source=rss') . '">RSS取得</a></div>';
+
+        if ($source === 'rss') {
+            $feeds = $this->pdo->query('SELECT * FROM xpp_rss_feeds WHERE enabled=1 ORDER BY id DESC')->fetchAll();
+            $feedChoices = '';
+            foreach ($feeds as $feed) {
+                $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
+                $feedChoices .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
+            }
+            $hitsOptions = '';
+            foreach ([10, 20, 30, 50, 100] as $hits) $hitsOptions .= '<option value="' . $hits . '"' . ($hits === 20 ? ' selected' : '') . '>' . $hits . '件</option>';
+            $panel = '<article class="panel simple-fetch-panel"><h2>RSSから記事を取得</h2><p>取得するRSSを選んでボタンを押します。</p><form method="post" action="' . $this->url('/posts/fetch-rss') . '">' . $this->csrfField()
+                . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="form-grid api-condition-grid"><label>キーワード<input name="keyword" type="text" maxlength="190" placeholder="タイトルなど"></label><label>取得件数<select name="hits">' . $hitsOptions . '</select></label><label>開始日<input name="date_from" type="date"></label><label>終了日<input name="date_to" type="date"></label></div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>RSS記事を取得</button></div></form></article>';
+            return '<section class="post-fetch-step"><div class="section-title"><span>1</span><div><h2>記事を取得</h2><p>APIまたはRSSを選択します。</p></div></div>' . $sourceTabs . $panel . '</section>';
+        }
+
         $statuses = $this->apiStatuses();
         $services = ['fanza' => 'FANZA', 'duga' => 'DUGA', 'sokumiru' => 'SOKUMIRU'];
         $selected = (string)($_GET['api_service'] ?? 'fanza');
         if (!isset($services[$selected])) $selected = 'fanza';
         $apiTabs = '<div class="tabs api-source-tabs">';
         foreach ($services as $service => $label) {
-            $apiTabs .= '<a class="button ' . ($selected === $service ? 'active' : '') . '" href="' . $this->url('/posts?api_service=' . $service) . '#api-fetch">' . $label . '</a>';
+            $apiTabs .= '<a class="button ' . ($selected === $service ? 'active' : '') . '" href="' . $this->url('/posts?source=api&amp;api_service=' . $service) . '">' . $label . '</a>';
         }
         $apiTabs .= '</div>';
         $apiStatus = $statuses[$selected] ?? '未設定';
         $disabled = $apiStatus === '未設定' || $apiStatus === '無効';
         $conditionFields = $this->apiConditionFields($selected);
-
-        $feeds = $this->pdo->query('SELECT * FROM xpp_rss_feeds WHERE enabled=1 ORDER BY id DESC')->fetchAll();
-        $feedChoices = '';
-        foreach ($feeds as $feed) {
-            $lastFetch = !empty($feed['last_fetched_at']) ? '最終取得：' . $this->e((string)$feed['last_fetched_at']) : 'まだ取得していません';
-            $feedChoices .= '<label class="feed-choice"><input type="checkbox" name="feed_ids[]" value="' . (int)$feed['id'] . '" checked><span><strong>' . $this->e($feed['name']) . '</strong><small>' . $this->e($feed['feed_url']) . '</small><small>' . $lastFetch . '</small></span></label>';
-        }
-
-        return '<section class="post-fetch-step"><div class="section-title"><span>1</span><div><h2>素材を取得</h2><p>API商品またはRSS記事を取得します。</p></div></div><div class="rss-tools-grid post-fetch-grid">'
-            . '<article class="panel" id="api-fetch"><h2>APIから商品を取得</h2><p>サイトを1つ選び、取得条件を指定します。</p>' . $apiTabs . '<div class="api-current-status"><strong>' . $services[$selected] . '</strong><span>' . $this->e($apiStatus) . '</span></div><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
-            . '<input type="hidden" name="service" value="' . $selected . '">' . $conditionFields . '<div class="button-row left"><button class="primary"' . ($disabled ? ' disabled' : '') . '>' . $services[$selected] . 'から取得</button><a class="secondary" href="' . $this->url('/api-settings/' . $selected) . '">' . $services[$selected] . '設定</a></div></form></article>'
-            . '<article class="panel"><h2>RSSから記事を取得</h2><p>取得するRSSを選択します。</p><form method="post" action="' . $this->url('/posts/fetch-rss') . '">' . $this->csrfField()
-            . '<div class="check-list feed-choice-list">' . ($feedChoices ?: '<div class="empty compact-empty">RSS設定でRSSを登録してください。</div>') . '</div><div class="button-row left"><button type="button" class="secondary" data-select-all=".feed-choice-list input[type=checkbox]"' . (!$feeds ? ' disabled' : '') . '>全選択を解除</button><button class="primary"' . (!$feeds ? ' disabled' : '') . '>選択したRSSから取得</button></div></form></article></div></section>';
+        $panel = '<article class="panel simple-fetch-panel"><h2>APIから記事を取得</h2><p>サイトと取得条件を選んでボタンを押します。</p>' . $apiTabs . '<div class="api-current-status"><strong>' . $services[$selected] . '</strong><span>' . $this->e($apiStatus) . '</span></div><form method="post" action="' . $this->url('/posts/fetch-api') . '">' . $this->csrfField()
+            . '<input type="hidden" name="service" value="' . $selected . '">' . $conditionFields . '<div class="button-row left"><button class="primary"' . ($disabled ? ' disabled' : '') . '>API記事を取得</button><a class="secondary" href="' . $this->url('/api-settings/' . $selected) . '">API情報を設定</a></div></form></article>';
+        return '<section class="post-fetch-step"><div class="section-title"><span>1</span><div><h2>記事を取得</h2><p>APIまたはRSSを選択します。</p></div></div>' . $sourceTabs . $panel . '</section>';
     }
 
     private function apiConditionFields(string $service): string
@@ -419,14 +450,7 @@ final class Kernel
         foreach ($sorts as $value => $label) $sortOptions .= '<option value="' . $this->e($value) . '">' . $this->e($label) . '</option>';
         $hitsOptions = '';
         foreach ([10, 20, 30, 50, 100] as $hits) $hitsOptions .= '<option value="' . $hits . '"' . ($hits === 20 ? ' selected' : '') . '>' . $hits . '件</option>';
-        $common = '<div class="form-grid api-condition-grid"><label>キーワード<input name="keyword" type="text" maxlength="190" placeholder="タイトル・出演者名など"></label><label>取得件数<select name="hits">' . $hitsOptions . '</select></label><label>並び順<select name="sort">' . $sortOptions . '</select></label><label>発売日・配信開始日（開始）<input name="date_from" type="date"></label><label>発売日・配信開始日（終了）<input name="date_to" type="date"></label>';
-        if ($service === 'fanza') {
-            return $common . '<label>絞り込み項目<select name="article"><option value="">指定なし</option><option value="actress">女優</option><option value="genre">ジャンル</option><option value="series">シリーズ</option><option value="maker">メーカー</option></select></label><label>絞り込みID<input name="article_id" type="text" maxlength="190" placeholder="項目を指定した場合に入力"></label></div>';
-        }
-        if ($service === 'duga') {
-            return $common . '<label>販売種別<select name="target"><option value="">すべて</option><option value="ppv">すべてのPPV</option><option value="sd">通常版</option><option value="rental">レンタル</option><option value="hd">HD版</option><option value="hdrental">HD版レンタル</option></select></label><label>カテゴリID<input name="category" type="text" maxlength="190"></label><label>出演者ID<input name="performer_id" type="text" maxlength="190"></label></div>';
-        }
-        return $common . '<label>カテゴリ<select name="category"><option value="av">アダルト動画</option><option value="idol">グラビア</option></select></label><label>絞り込み項目<select name="article"><option value="">指定なし</option><option value="actor">出演者</option><option value="director">監督</option><option value="genre">ジャンル</option><option value="maker">メーカー</option><option value="label">レーベル</option><option value="series">シリーズ</option></select></label><label>絞り込みID<input name="article_id" type="text" maxlength="190" placeholder="項目を指定した場合に入力"></label></div>';
+        return '<div class="form-grid api-condition-grid"><label>キーワード<input name="keyword" type="text" maxlength="190" placeholder="タイトルや出演者名など"></label><label>取得件数<select name="hits">' . $hitsOptions . '</select></label><label>並び順<select name="sort">' . $sortOptions . '</select></label><label>開始日<input name="date_from" type="date"></label><label>終了日<input name="date_to" type="date"></label></div>';
     }
 
     private function settings(): string
@@ -668,19 +692,14 @@ final class Kernel
             'sort' => trim((string)($_POST['sort'] ?? '')),
             'date_from' => trim((string)($_POST['date_from'] ?? '')),
             'date_to' => trim((string)($_POST['date_to'] ?? '')),
-            'article' => trim((string)($_POST['article'] ?? '')),
-            'article_id' => trim((string)($_POST['article_id'] ?? '')),
-            'target' => trim((string)($_POST['target'] ?? '')),
-            'category' => trim((string)($_POST['category'] ?? '')),
-            'performer_id' => trim((string)($_POST['performer_id'] ?? '')),
         ];
         foreach (['date_from', 'date_to'] as $dateKey) {
             if ($filters[$dateKey] !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $filters[$dateKey])) {
-                $this->fail('日付を正しく入力してください。', '/posts?api_service=' . $service);
+                $this->fail('日付を正しく入力してください。', '/posts?source=api&api_service=' . $service);
             }
         }
         if ($filters['date_from'] !== '' && $filters['date_to'] !== '' && $filters['date_from'] > $filters['date_to']) {
-            $this->fail('開始日は終了日より前の日付にしてください。', '/posts?api_service=' . $service);
+            $this->fail('開始日は終了日より前の日付にしてください。', '/posts?source=api&api_service=' . $service);
         }
         $count = 0;
         try {
@@ -689,9 +708,9 @@ final class Kernel
                 $count++;
             }
         } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/posts?api_service=' . $service);
+            $this->fail($e->getMessage(), '/posts?source=api&api_service=' . $service);
         }
-        $this->success($count . '件の商品を取得しました。', '/posts?api_service=' . $service);
+        $this->success($count . '件の記事を取得しました。', '/posts?source=api&api_service=' . $service);
     }
 
     private function requestApi(string $service, string $keyword, int $hits, array $filters = []): array
@@ -709,12 +728,6 @@ final class Kernel
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
             }
-            $article = $this->allowedValue((string)($filters['article'] ?? ''), ['actress', 'genre', 'series', 'maker'], '');
-            $articleId = trim((string)($filters['article_id'] ?? ''));
-            if ($article !== '' && $articleId !== '') {
-                $params['article'] = $article;
-                $params['article_id'] = $articleId;
-            }
             if (($filters['date_from'] ?? '') !== '') $params['gte_date'] = $filters['date_from'] . 'T00:00:00';
             if (($filters['date_to'] ?? '') !== '') $params['lte_date'] = $filters['date_to'] . 'T23:59:59';
             $url = 'https://api.dmm.com/affiliate/v3/ItemList?' . http_build_query($params);
@@ -727,7 +740,7 @@ final class Kernel
                 'external_id' => (string)($i['content_id'] ?? $i['product_id'] ?? ''),
                 'title' => (string)($i['title'] ?? ''), 'description' => '',
                 'source_url' => (string)($i['URL'] ?? ''), 'affiliate_url' => (string)($i['affiliateURL'] ?? ''),
-                'image_url' => (string)($i['imageURL']['large'] ?? $i['imageURL']['list'] ?? ''),
+                'image_url' => $this->firstString($i['sampleImageURL']['sample_l']['image'] ?? []) ?: (string)($i['imageURL']['large'] ?? $i['imageURL']['list'] ?? ''),
                 'media_url' => (string)($i['sampleMovieURL']['size_720_480'] ?? $i['sampleMovieURL']['size_644_414'] ?? ''),
                 'actress' => $this->names($i['iteminfo']['actress'] ?? []),
                 'genre' => $this->names($i['iteminfo']['genre'] ?? []),
@@ -747,10 +760,6 @@ final class Kernel
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
             }
-            $target = $this->allowedValue((string)($filters['target'] ?? ''), ['ppv', 'sd', 'rental', 'hd', 'hdrental'], '');
-            if ($target !== '') $params['target'] = $target;
-            if (($filters['category'] ?? '') !== '') $params['category'] = $filters['category'];
-            if (($filters['performer_id'] ?? '') !== '') $params['performerid'] = $filters['performer_id'];
             if (($filters['date_from'] ?? '') !== '') $params['releasestt'] = str_replace('-', '', $filters['date_from']);
             if (($filters['date_to'] ?? '') !== '') $params['releaseend'] = str_replace('-', '', $filters['date_to']);
             $url = 'https://affapi.duga.jp/search?' . http_build_query($params);
@@ -765,7 +774,7 @@ final class Kernel
                     'external_id' => (string)($i['productid'] ?? ''), 'title' => (string)($i['title'] ?? ''),
                     'description' => (string)($i['caption'] ?? ''), 'source_url' => (string)($i['url'] ?? ''),
                     'affiliate_url' => (string)($i['affiliateurl'] ?? ''),
-                    'image_url' => (string)($i['jacketimage']['large'] ?? $i['posterimage']['large'] ?? ''),
+                    'image_url' => $this->firstString($i['thumbnail']['image'] ?? []) ?: (string)($i['jacketimage']['large'] ?? $i['posterimage']['large'] ?? ''),
                     'media_url' => (string)($i['samplemovie']['midium']['movie'] ?? ''),
                     'actress' => $this->names($performers), 'genre' => $this->names($categories),
                     'series_name' => $this->names($i['series'] ?? []),
@@ -780,16 +789,10 @@ final class Kernel
             $params = [
                 'affiliate_id' => $credentials['affiliate_id'], 'api_key' => $credentials['api_key'],
                 'output' => 'json', 'hits' => min(100, $hits), 'sort' => $this->allowedValue((string)($filters['sort'] ?? ''), ['date', 'price', '-price'], 'date'),
-                'category' => $this->allowedValue((string)($filters['category'] ?? ''), ['av', 'idol'], 'av'),
+                'category' => 'av',
             ];
             if ($keyword !== '') {
                 $params['keyword'] = $keyword;
-            }
-            $article = $this->allowedValue((string)($filters['article'] ?? ''), ['actor', 'director', 'genre', 'maker', 'label', 'series'], '');
-            $articleId = trim((string)($filters['article_id'] ?? ''));
-            if ($article !== '' && $articleId !== '') {
-                $params['article'] = $article;
-                $params['article_id'] = $articleId;
             }
             if (($filters['date_from'] ?? '') !== '') $params['gte_date'] = $filters['date_from'] . 'T00:00:00';
             if (($filters['date_to'] ?? '') !== '') $params['lte_date'] = $filters['date_to'] . 'T23:59:59';
@@ -803,7 +806,7 @@ final class Kernel
                 'external_id' => (string)($i['id'] ?? ''), 'title' => (string)($i['title'] ?? ''),
                 'description' => '', 'source_url' => (string)($i['URL'] ?? ''),
                 'affiliate_url' => (string)($i['affiliateURL'] ?? ''),
-                'image_url' => (string)($i['imageURL']['large'] ?? $i['imageURL']['list'] ?? ''),
+                'image_url' => $this->firstString($i['sampleImageURL']['image'] ?? []) ?: (string)($i['imageURL']['large'] ?? $i['imageURL']['list'] ?? ''),
                 'media_url' => (string)($i['sampleMovieURL']['url'] ?? ''),
                 'actress' => $this->names($i['iteminfo']['actor'] ?? []),
                 'genre' => $this->names($i['iteminfo']['genre'] ?? []),
@@ -843,7 +846,20 @@ final class Kernel
     {
         $ids = array_values(array_filter(array_map('intval', (array)($_POST['feed_ids'] ?? []))));
         if (!$ids) {
-            $this->fail('RSSを選択してください。', '/posts');
+            $this->fail('RSSを選択してください。', '/posts?source=rss');
+        }
+        $keyword = trim((string)($_POST['keyword'] ?? ''));
+        $limit = (int)($_POST['hits'] ?? 20);
+        if (!in_array($limit, [10, 20, 30, 50, 100], true)) $limit = 20;
+        $dateFrom = trim((string)($_POST['date_from'] ?? ''));
+        $dateTo = trim((string)($_POST['date_to'] ?? ''));
+        foreach ([$dateFrom, $dateTo] as $date) {
+            if ($date !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                $this->fail('日付を正しく入力してください。', '/posts?source=rss');
+            }
+        }
+        if ($dateFrom !== '' && $dateTo !== '' && $dateFrom > $dateTo) {
+            $this->fail('開始日は終了日より前の日付にしてください。', '/posts?source=rss');
         }
         $count = 0;
         foreach ($ids as $id) {
@@ -861,14 +877,22 @@ final class Kernel
                 }
                 $entries = isset($parsed->channel->item) ? $parsed->channel->item : $parsed->entry;
                 foreach ($entries as $entry) {
+                    if ($count >= $limit) continue;
                     $link = isset($entry->link['href']) ? (string)$entry->link['href'] : (string)$entry->link;
                     $images = $this->rssImages($entry);
                     $tags = $this->rssTags($entry);
-                    $item = ['external_id' => sha1($link), 'title' => (string)$entry->title,
-                        'description' => strip_tags((string)($entry->description ?? $entry->summary ?? $entry->content)),
+                    $title = trim((string)$entry->title);
+                    $description = strip_tags((string)($entry->description ?? $entry->summary ?? $entry->content));
+                    $publishedAt = $this->dateValue((string)($entry->pubDate ?? $entry->published ?? $entry->updated));
+                    if ($keyword !== '' && mb_stripos($title . ' ' . $description, $keyword) === false) continue;
+                    $publishedDate = $publishedAt ? substr($publishedAt, 0, 10) : '';
+                    if ($dateFrom !== '' && ($publishedDate === '' || $publishedDate < $dateFrom)) continue;
+                    if ($dateTo !== '' && ($publishedDate === '' || $publishedDate > $dateTo)) continue;
+                    $item = ['external_id' => sha1($link), 'title' => $title,
+                        'description' => $description,
                         'source_url' => $link, 'affiliate_url' => '', 'image_url' => $images[0] ?? '',
                         'media_url' => '', 'actress' => '', 'genre' => implode('、', $tags), 'series_name' => '', 'maker' => '', 'label' => '',
-                        'published_at' => $this->dateValue((string)($entry->pubDate ?? $entry->published ?? $entry->updated)),
+                        'published_at' => $publishedAt,
                         'raw' => json_decode(json_encode($entry), true) ?: [], 'images' => $images];
                     $this->upsertItem('rss', 'rss', $item, $id);
                     $count++;
@@ -878,7 +902,7 @@ final class Kernel
                 $this->pdo->prepare('UPDATE xpp_rss_feeds SET last_error=? WHERE id=?')->execute([mb_substr($e->getMessage(), 0, 1000), $id]);
             }
         }
-        $this->success($count . '件の記事を取得しました。', '/posts');
+        $this->success($count . '件の記事を取得しました。', '/posts?source=rss');
     }
 
     private function saveTemplate(): never
@@ -896,16 +920,10 @@ final class Kernel
         $id = (int)($_POST['id'] ?? 0);
         $name = trim((string)($_POST['name'] ?? ''));
         $body = trim((string)($_POST['body'] ?? ''));
-        $hashtagFields = $type === 'api'
-            ? array_values(array_intersect((array)($_POST['hashtag_fields'] ?? []), ['actress', 'genre', 'series_name', 'maker', 'label']))
-            : [];
         if ($name === '' || $body === '') {
             $this->fail('名前と本文を入力してください。', $redirect);
         }
-        if ($type === 'api' && !$hashtagFields) {
-            $this->fail('ハッシュタグに使用する項目を1つ以上選択してください。', $redirect);
-        }
-        $hashtagFieldsValue = $type === 'api' ? implode(',', $hashtagFields) : null;
+        $hashtagFieldsValue = null;
         if ($id > 0) {
             $this->pdo->prepare('UPDATE xpp_templates SET name=?,body=?,hashtag_fields=?,updated_at=? WHERE id=? AND source_type=? AND (service=? OR (service IS NULL AND ? IS NULL))')
                 ->execute([$name, $body, $hashtagFieldsValue, $this->now(), $id, $type, $service, $service]);
@@ -937,95 +955,7 @@ final class Kernel
         if ($type === 'api' && in_array($service, ['fanza', 'duga', 'sokumiru'], true)) {
             return '/api-templates/' . $service;
         }
-        return $type === 'video' ? '/video-templates' : '/rss-templates';
-    }
-
-    private function hashtagOptions(string $selected): string
-    {
-        $labels = ['actress' => '女優', 'genre' => 'ジャンル', 'series_name' => 'シリーズ', 'maker' => 'メーカー', 'label' => 'レーベル'];
-        $selectedFields = $selected !== '' ? explode(',', $selected) : array_keys($labels);
-        $options = '';
-        foreach ($labels as $field => $label) {
-            $checked = in_array($field, $selectedFields, true) ? ' checked' : '';
-            $options .= '<label class="inline-check"><input type="checkbox" name="hashtag_fields[]" value="' . $field . '"' . $checked . '> ' . $label . '</label>';
-        }
-        return '<fieldset class="hashtag-options"><legend>ハッシュタグに使用する項目</legend><p class="help">複数選択できます。選択した項目は <code>{hashtags}</code> にまとめて入ります。</p><div class="source-options">' . $options . '</div></fieldset>';
-    }
-
-    private function analyzeVideo(): never
-    {
-        $url = trim((string)($_POST['video_url'] ?? ''));
-        try {
-            $this->assertPublicUrl($url);
-            $mp4 = preg_match('/\.mp4(?:$|\?)/i', $url) ? $url : $this->extractMp4($url);
-            $dir = dirname(__DIR__, 2) . '/storage/media/videos';
-            if (!is_dir($dir) && !mkdir($dir, 0755, true) && !is_dir($dir)) {
-                throw new \RuntimeException('動画保存フォルダを作成できません。');
-            }
-            $path = $dir . '/' . bin2hex(random_bytes(12)) . '.mp4';
-            $size = $this->downloadFile($mp4, $path, 536_870_912);
-            $now = $this->now();
-            $this->pdo->prepare('INSERT INTO xpp_video_jobs(input_type,input_url,source_path,status,progress,source_size,created_at,updated_at) VALUES(?,?,?,\'downloaded\',100,?,?,?)')
-                ->execute([$mp4 === $url ? 'mp4' : 'page', $url, $path, $size, $now, $now]);
-            $this->success('動画をダウンロードしました。編集条件を指定してください。', '/videos');
-        } catch (\Throwable $e) {
-            $this->fail($e->getMessage(), '/videos');
-        }
-    }
-
-    private function editVideo(): never
-    {
-        $id = (int)($_POST['job_id'] ?? 0);
-        $stmt = $this->pdo->prepare('SELECT * FROM xpp_video_jobs WHERE id=?');
-        $stmt->execute([$id]);
-        $job = $stmt->fetch();
-        if (!$job || !is_file((string)$job['source_path'])) {
-            $this->fail('元動画が見つかりません。', '/videos');
-        }
-        $ffmpeg = trim((string)@shell_exec('command -v ffmpeg 2>/dev/null'));
-        if ($ffmpeg === '') {
-            $this->fail('FFmpegがインストールされていません。サーバー管理画面でFFmpegを有効にしてください。', '/videos');
-        }
-        $start = max(0, (float)($_POST['start_seconds'] ?? 0));
-        $end = max(0, (float)($_POST['end_seconds'] ?? 0));
-        if ($end > 0 && $end <= $start) {
-            $this->fail('終了時間は開始時間より後にしてください。', '/videos');
-        }
-        $ratio = in_array($_POST['aspect_ratio'] ?? '', ['original', '16:9', '1:1', '9:16'], true) ? (string)$_POST['aspect_ratio'] : 'original';
-        $quality = in_array($_POST['quality'] ?? '', ['high', 'standard', 'small'], true) ? (string)$_POST['quality'] : 'standard';
-        $muted = isset($_POST['muted']) ? 1 : 0;
-        $title = trim((string)($_POST['title'] ?? ''));
-        if ($title === '') {
-            $this->fail('投稿素材のタイトルを入力してください。', '/videos');
-        }
-        $output = dirname((string)$job['source_path']) . '/' . bin2hex(random_bytes(12)) . '-edited.mp4';
-        $filters = [
-            '16:9' => 'scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720',
-            '1:1' => 'scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080',
-            '9:16' => 'scale=720:1280:force_original_aspect_ratio=increase,crop=720:1280',
-        ];
-        $crf = ['high' => '19', 'standard' => '23', 'small' => '28'][$quality];
-        $command = escapeshellarg($ffmpeg) . ' -y -ss ' . escapeshellarg((string)$start) . ' -i ' . escapeshellarg((string)$job['source_path']);
-        if ($end > 0) {
-            $command .= ' -t ' . escapeshellarg((string)($end - $start));
-        }
-        if (isset($filters[$ratio])) {
-            $command .= ' -vf ' . escapeshellarg($filters[$ratio]);
-        }
-        $command .= ' -c:v libx264 -preset medium -crf ' . $crf . ' -pix_fmt yuv420p -movflags +faststart';
-        $command .= $muted ? ' -an' : ' -c:a aac -b:a 128k';
-        $command .= ' ' . escapeshellarg($output) . ' 2>&1';
-        exec($command, $lines, $code);
-        if ($code !== 0 || !is_file($output)) {
-            $message = implode("\n", array_slice($lines, -10));
-            $this->pdo->prepare('UPDATE xpp_video_jobs SET status=\'failed\',error_message=?,updated_at=? WHERE id=?')->execute([$message, $this->now(), $id]);
-            $this->fail('動画編集に失敗しました。' . $message, '/videos');
-        }
-        $this->pdo->prepare('UPDATE xpp_video_jobs SET output_path=?,status=\'completed\',start_seconds=?,end_seconds=?,aspect_ratio=?,quality=?,muted=?,output_size=?,updated_at=? WHERE id=?')
-            ->execute([$output, $start, $end ?: null, $ratio, $quality, $muted, filesize($output), $this->now(), $id]);
-        $item = ['external_id' => 'video-' . $id, 'title' => $title, 'description' => '', 'source_url' => $job['input_url'], 'affiliate_url' => '', 'image_url' => '', 'media_url' => $this->mediaUrl($output), 'actress' => '', 'genre' => '', 'published_at' => $this->now(), 'raw' => [], 'images' => []];
-        $this->upsertItem('video', 'video', $item);
-        $this->success('動画編集が完了しました。', '/videos');
+        return '/rss-templates';
     }
 
     private function generatePost(): never
@@ -1045,13 +975,13 @@ final class Kernel
             $this->fail('テンプレートが見つかりません。', '/posts');
         }
         $imageUrls = array_values(array_filter([(string)$item['image_url']]));
-        if ($item['source_type'] === 'rss') {
-            $mediaStmt = $this->pdo->prepare('SELECT media_url FROM xpp_source_media WHERE source_item_id=? AND media_type=\'image\' ORDER BY sort_order,id');
-            $mediaStmt->execute([$itemId]);
-            $imageUrls = array_values(array_unique([...$imageUrls, ...array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url')))]));
-        }
+        $mediaStmt = $this->pdo->prepare('SELECT media_url FROM xpp_source_media WHERE source_item_id=? AND media_type=\'image\' ORDER BY sort_order,id');
+        $mediaStmt->execute([$itemId]);
+        $sampleImages = array_values(array_filter(array_map('strval', array_column($mediaStmt->fetchAll(), 'media_url'))));
+        $imageUrls = array_values(array_unique([...$imageUrls, ...$sampleImages]));
+        $sampleImage = $sampleImages[0] ?? (string)$item['image_url'];
         $hashtags = $this->itemHashtags($item, (string)($template['hashtag_fields'] ?? ''));
-        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_link}' => $item['affiliate_url'], '{affiliate_url}' => $item['affiliate_url'], '{package_image}' => $item['image_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie}' => $item['media_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{tags}' => $item['genre'], '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre'], '{series}' => $item['series_name'], '{maker}' => $item['maker'], '{label}' => $item['label']];
+        $replace = ['{title}' => $item['title'], '{url}' => $item['affiliate_url'] ?: $item['source_url'], '{article_url}' => $item['source_url'], '{affiliate_link}' => $item['affiliate_url'] ?: $item['source_url'], '{affiliate_url}' => $item['affiliate_url'], '{sample_image}' => $sampleImage, '{package_image}' => $item['image_url'], '{image}' => $item['image_url'], '{image_url}' => $item['image_url'], '{image_urls}' => implode("\n", $imageUrls), '{sample_movie}' => $item['media_url'], '{sample_movie_url}' => $item['media_url'], '{hashtags}' => $hashtags, '{tags}' => $item['genre'], '{service}' => $item['service'], '{actress}' => $item['actress'], '{genre}' => $item['genre'], '{series}' => $item['series_name'], '{maker}' => $item['maker'], '{label}' => $item['label']];
         $body = strtr((string)$template['body'], $replace);
         $now = $this->now();
         $this->pdo->prepare('INSERT INTO xpp_posts(source_type,source_item_id,template_id,title,body,status,created_at,updated_at) VALUES(?,?,?,?,?,\'draft\',?,?)')
@@ -1063,7 +993,7 @@ final class Kernel
                 $this->pdo->prepare('INSERT INTO xpp_post_media(post_id,media_type,media_url,local_path,sort_order,created_at) VALUES(?,?,?,?,?,?)')->execute([$postId, $type, $url, $local, $sortOrder, $now]);
             }
         }
-        $this->success('投稿を作成しました。', '/posts');
+        $this->success('ポストを作成しました。', '/posts?source=' . $item['source_type']);
     }
 
     private function savePost(): never
@@ -1134,22 +1064,23 @@ final class Kernel
                 $links .= '<a href="' . $this->e((string)$item['source_url']) . '" target="_blank" rel="noopener">記事を開く</a>';
             }
             $links .= '</div>';
-            $tags = $this->itemHashtags($item, '');
-            $tagLine = $tags !== '' ? '<p class="help">タグ：' . $this->e($tags) . '</p>' : '<p class="help">タグ：なし</p>';
+            $tags = $type === 'rss' ? $this->itemHashtags($item, '') : '';
+            $tagLine = $tags !== '' ? '<p class="help">タグ：' . $this->e($tags) . '</p>' : '';
             $image = !empty($item['image_url']) ? '<img class="list-thumbnail" src="' . $this->e($item['image_url']) . '" loading="lazy" alt="">' : '<span class="no-image">画像なし</span>';
             $rows .= '<tr><td><input form="source-bulk-delete-' . $type . '" type="checkbox" name="ids[]" value="' . (int)$item['id'] . '"></td><td>' . $image . '</td>'
                 . '<td class="title-column"><strong>' . $this->e($item['title']) . '</strong><p class="excerpt">' . $this->e(mb_substr((string)$item['description'], 0, 120)) . '</p>' . $tagLine . $links . '</td>'
                 . '<td><span class="type-badge">' . $this->e(strtoupper((string)$item['service'])) . '</span></td><td class="date-column">' . $this->e((string)($item['published_at'] ?: $item['created_at'])) . '</td>'
-                . '<td class="template-column"><form class="generate-form" method="post" action="' . $this->url('/posts/generate') . '">' . $this->csrfField() . '<input type="hidden" name="source_item_id" value="' . (int)$item['id'] . '"><select name="template_id" required aria-label="テンプレート">' . $options . '</select><button class="primary"' . (!$templates ? ' disabled' : '') . '>投稿作成</button></form></td>'
+                . '<td class="template-column"><form class="generate-form" method="post" action="' . $this->url('/posts/generate') . '">' . $this->csrfField() . '<input type="hidden" name="source_item_id" value="' . (int)$item['id'] . '"><select name="template_id" required aria-label="テンプレート">' . $options . '</select><button class="primary"' . (!$templates ? ' disabled' : '') . '>ポスト作成</button></form></td>'
                 . '<td class="action-column"><form method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'この素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><input type="hidden" name="ids[]" value="' . (int)$item['id'] . '"><button class="danger">削除</button></form></td></tr>';
         }
-        $actions = $items ? '<form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した素材を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="list-actions"><button type="button" class="secondary" data-select-all=".' . $type . '-item-table input[name=&quot;ids[]&quot;]">全選択</button><button class="danger">選択した素材を一括削除</button></div></form>' : '';
-        $heading = $type === 'rss' ? 'RSS取得記事' : 'API取得素材';
-        $emptyText = $type === 'rss' ? 'まだ記事を取得していません。' : 'まだ素材はありません。';
-        $titleHtml = '<h2>' . $heading . '</h2><p>テンプレートを選び「投稿作成」を押してください。</p>';
+        $actions = $items ? '<p class="bulk-help">不要な記事にチェックを付けてください。「このページを全選択」は、現在表示中の記事だけを選びます。</p><form id="source-bulk-delete-' . $type . '" method="post" action="' . $this->url('/source-items/delete') . '" onsubmit="return confirm(\'選択した記事を削除しますか？\')">' . $this->csrfField() . '<input type="hidden" name="source_type" value="' . $type . '"><div class="list-actions"><button type="button" class="secondary" data-select-all=".' . $type . '-item-table input[name=&quot;ids[]&quot;]" data-select-label="このページを全選択">このページを全選択</button><button class="danger">選択した記事を削除</button></div></form>' : '';
+        $heading = $type === 'rss' ? 'RSS取得記事' : 'API取得記事';
+        $emptyText = 'まだ記事を取得していません。';
+        $titleHtml = '<h2>' . $heading . '</h2><p>必要な記事だけテンプレートを選び「ポスト作成」を押します。</p>';
         $toolbar = $this->listToolbar($perPageKey, $pageKey, $perPage, (int)$pageData['total'], $type === 'rss' ? '記事' : '素材');
-        $table = $items ? '<div class="table-wrap"><table class="wp-list-table ' . $type . '-item-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル・情報</th><th>取得元</th><th>公開日</th><th>テンプレート・投稿作成</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' : '<div class="empty">' . $emptyText . '</div>';
-        return '<section class="panel item-section list-panel">' . $titleHtml . $toolbar . $actions . $table . $this->pagination($pageKey, (int)$pageData['page'], (int)$pageData['pages']) . '</section>';
+        $table = $items ? '<div class="table-wrap"><table class="wp-list-table ' . $type . '-item-table"><thead><tr><th class="check-column"></th><th>画像</th><th>タイトル・情報</th><th>取得元</th><th>公開日</th><th>テンプレート・ポスト作成</th><th>操作</th></tr></thead><tbody>' . $rows . '</tbody></table></div>' : '<div class="empty">' . $emptyText . '</div>';
+        $optionalActions = $items ? '<details class="list-options"><summary>一覧の操作（表示件数・一括削除）</summary><div class="list-options-body">' . $toolbar . $actions . '</div></details>' : '';
+        return '<section class="panel item-section list-panel">' . $titleHtml . $optionalActions . $table . $this->pagination($pageKey, (int)$pageData['page'], (int)$pageData['pages']) . '</section>';
     }
 
     private function perPage(string $key): int
@@ -1196,7 +1127,7 @@ final class Kernel
 
     private function safeQuery(array $overrides = []): array
     {
-        $allowed = ['status', 'api_service', 'api_page', 'rss_page', 'post_page', 'api_per_page', 'rss_per_page', 'post_per_page'];
+        $allowed = ['source', 'status', 'api_service', 'api_page', 'rss_page', 'post_page', 'api_per_page', 'rss_per_page', 'post_per_page'];
         $query = [];
         foreach ($allowed as $key) {
             if (isset($_GET[$key]) && is_scalar($_GET[$key])) $query[$key] = (string)$_GET[$key];
@@ -1214,7 +1145,7 @@ final class Kernel
 
     private function deleteSourceItems(): never
     {
-        $type = in_array($_POST['source_type'] ?? '', ['api', 'rss', 'video'], true) ? (string)$_POST['source_type'] : 'api';
+        $type = in_array($_POST['source_type'] ?? '', ['api', 'rss'], true) ? (string)$_POST['source_type'] : 'api';
         $ids = array_values(array_filter(array_map('intval', (array)($_POST['ids'] ?? []))));
         if ($ids) {
             $marks = implode(',', array_fill(0, count($ids), '?'));
@@ -1233,10 +1164,10 @@ final class Kernel
                 $this->pdo->commit();
             } catch (\Throwable $e) {
                 $this->pdo->rollBack();
-                $this->fail('素材を削除できませんでした。', '/posts');
+                $this->fail('記事を削除できませんでした。', '/posts?source=' . $type);
             }
         }
-        $this->success('選択した素材を削除しました。', '/posts');
+        $this->success('選択した記事を削除しました。', '/posts?source=' . $type);
     }
 
     private function upsertItem(string $type, string $service, array $item, ?int $feedId = null): int
@@ -1454,44 +1385,6 @@ final class Kernel
         }
     }
 
-    private function extractMp4(string $pageUrl): string
-    {
-        $html = $this->httpGet($pageUrl, 5_000_000);
-        if (!preg_match_all('~https?://[^\s"\'<>]+\.mp4(?:\?[^\s"\'<>]*)?~i', $html, $matches) || empty($matches[0][0])) {
-            throw new \RuntimeException('動画ページからMP4 URLを確認できません。MP4 URLを直接入力してください。');
-        }
-        $url = html_entity_decode($matches[0][0], ENT_QUOTES | ENT_HTML5);
-        $this->assertPublicUrl($url);
-        return $url;
-    }
-
-    private function downloadFile(string $url, string $path, int $maxBytes): int
-    {
-        $this->assertPublicUrl($url);
-        $context = stream_context_create(['http' => ['timeout' => 60, 'follow_location' => 0, 'header' => "User-Agent: XPostPlus/1.0\r\n"], 'ssl' => ['verify_peer' => true, 'verify_peer_name' => true]]);
-        $input = @fopen($url, 'rb', false, $context);
-        $output = @fopen($path, 'wb');
-        if (!$input || !$output) {
-            if (is_resource($input)) fclose($input);
-            if (is_resource($output)) fclose($output);
-            throw new \RuntimeException('動画をダウンロードできません。');
-        }
-        $bytes = 0;
-        try {
-            while (!feof($input)) {
-                $chunk = fread($input, 1_048_576);
-                if ($chunk === false) throw new \RuntimeException('動画の読み込みに失敗しました。');
-                $bytes += strlen($chunk);
-                if ($bytes > $maxBytes) throw new \RuntimeException('動画が512MBを超えています。');
-                if (fwrite($output, $chunk) === false) throw new \RuntimeException('動画を保存できません。');
-            }
-        } catch (\Throwable $e) {
-            fclose($input); fclose($output); @unlink($path); throw $e;
-        }
-        fclose($input); fclose($output);
-        return $bytes;
-    }
-
     private function rssImages(\SimpleXMLElement $entry): array
     {
         $images = [];
@@ -1571,6 +1464,17 @@ final class Kernel
         return implode('、', array_values(array_filter(array_map(fn($row) => is_array($row) ? (string)($row['name'] ?? '') : '', $rows))));
     }
 
+    private function firstString(mixed $value): string
+    {
+        if (is_string($value)) return trim($value);
+        if (!is_array($value)) return '';
+        foreach ($value as $child) {
+            $found = $this->firstString($child);
+            if ($found !== '') return $found;
+        }
+        return '';
+    }
+
     private function normalizeRows(mixed $rows, string $identityKey): array
     {
         if (!is_array($rows)) {
@@ -1643,7 +1547,9 @@ final class Kernel
 
     private function postTabs(string $status): string
     {
-        return '<nav class="tabs"><a class="' . ($status === 'draft' ? 'active' : '') . '" href="' . $this->url('/posts?status=draft') . '">未投稿</a><a class="' . ($status === 'posted' ? 'active' : '') . '" href="' . $this->url('/posts?status=posted') . '">投稿済み</a></nav>';
+        $draftQuery = $this->safeQuery(['status' => 'draft', 'post_page' => 1]);
+        $postedQuery = $this->safeQuery(['status' => 'posted', 'post_page' => 1]);
+        return '<nav class="tabs"><a class="' . ($status === 'draft' ? 'active' : '') . '" href="' . $this->url('/posts?' . http_build_query($draftQuery)) . '">未投稿</a><a class="' . ($status === 'posted' ? 'active' : '') . '" href="' . $this->url('/posts?' . http_build_query($postedQuery)) . '">投稿済み</a></nav>';
     }
 
     private function mediaUrl(string $path): string
